@@ -30,6 +30,14 @@ class AuthorizePaymentRequest(BaseModel):
     payment_method_token: AuthorizationDecision
 
 
+class RefundPaymentRequest(BaseModel):
+    """Amount to refund from captured funds."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    amount: int = Field(gt=0, le=999_999_999)
+
+
 class PaymentResponse(BaseModel):
     """Stable representation of the payment aggregate."""
 

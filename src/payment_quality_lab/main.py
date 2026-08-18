@@ -9,6 +9,10 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from payment_quality_lab.api.routes import get_session, router
+from payment_quality_lab.domain.payment import (
+    InvalidPaymentTransitionError,
+    RefundAmountExceededError,
+)
 from payment_quality_lab.persistence.database import (
     Base,
     create_database_engine,
@@ -32,8 +36,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
 
     app = FastAPI(
         title="Payment Platform Quality Lab",
-        version="0.1.0",
-        description="Privacy-safe payment authorization simulator",
+        version="0.2.0",
+        description="Privacy-safe payment lifecycle simulator",
     )
     app.state.engine = engine
     app.state.session_factory = session_factory
@@ -65,6 +69,32 @@ def create_app(database_url: str | None = None) -> FastAPI:
             content={
                 "code": "idempotency_conflict",
                 "message": "Idempotency key was already used for another request",
+            },
+        )
+
+    @app.exception_handler(InvalidPaymentTransitionError)
+    async def invalid_payment_transition(
+        _request: Request, error: InvalidPaymentTransitionError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "code": "invalid_payment_transition",
+                "message": str(error),
+            },
+        )
+
+    @app.exception_handler(RefundAmountExceededError)
+    async def refund_amount_exceeded(
+        _request: Request, error: RefundAmountExceededError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "code": "refund_amount_exceeded",
+                "message": str(error),
+                "requested_amount": error.requested,
+                "refundable_amount": error.available,
             },
         )
 
