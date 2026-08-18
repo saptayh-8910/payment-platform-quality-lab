@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "payment-platform-quality-lab"
+version = "0.1.0"
+description = "A privacy-safe payment simulator and payment QA laboratory"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{ name = "saptayh-8910" }]
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "sqlalchemy>=2.0,<3.0",
+  "uvicorn[standard]>=0.34,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx2>=2.10,<3.0",
+  "pytest>=8.3,<10.0",
+  "pytest-cov>=6.0,<8.0",
+  "ruff>=0.11,<1.0",
+]
+
+[project.scripts]
+payment-quality-lab = "payment_quality_lab.main:run"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = [
+  "--strict-config",
+  "--strict-markers",
+  "--cov=payment_quality_lab",
+  "--cov-branch",
+  "--cov-report=term-missing",
+  "--cov-fail-under=85",
+]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["payment_quality_lab"]
+
+[tool.coverage.report]
+exclude_also = [
+  "if __name__ == .__main__.:",
+  "raise NotImplementedError",
+]
+show_missing = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
