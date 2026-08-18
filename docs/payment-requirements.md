@@ -6,9 +6,9 @@ This document defines the initial behavioral contract for a simulated payment
 platform. It is intentionally provider-neutral and contains no real payment or
 cardholder data.
 
-Authorization, capture, cancellation, and refund are implemented. Later
-milestones add concurrency hardening, webhooks, failure recovery, and
-reconciliation.
+Authorization, capture, cancellation, refund, concurrency hardening, and
+deterministic failure recovery are implemented. Later milestones add webhooks
+and reconciliation.
 
 ## 2. Domain model
 
@@ -144,16 +144,19 @@ The implementation and property-based tests must preserve these invariants:
 
 ## 5. Testability feedback and open decisions
 
-The following decisions must be made before their milestones begin:
+Milestone 4 resolved the following decisions:
 
-- Whether capture and refund endpoints use optimistic locking, database locking,
-  or both for concurrent updates.
+- Payment updates use optimistic locking through the aggregate version. A stale
+  writer receives a retryable concurrency conflict.
+- A unique idempotency claim is acquired before a financial mutation. Equivalent
+  concurrent requests replay one immutable outcome.
+- Idempotency records remain available indefinitely within the simulator.
+- Declined authorizations replay the original decline response.
+
+The following decisions remain for later milestones:
+
 - Whether webhook ordering is represented by aggregate version, occurrence time,
   or both.
-- How long idempotency records conceptually remain valid. The simulator may keep
-  them indefinitely, but the behavior must be documented.
-- Whether a declined authorization may reuse the same idempotency key and receive
-  the original decline. The initial recommendation is yes.
 - How simulated settlement batches determine their cutoff and included states.
 
 These are documented as testability concerns rather than silently embedded in

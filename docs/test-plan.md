@@ -110,6 +110,8 @@ Before a portfolio release:
 - All required automated gates pass from a clean checkout.
 - Critical payment invariants pass with no unexplained exclusions.
 - The timeout-and-safe-retry demonstration is reproducible.
+- Concurrent equivalent requests produce one stored response and financial effect.
+- Stale competing requests cannot overwrite a newer payment version.
 - Reconciliation reports no unexplained mismatch.
 - Open critical or high defects are documented and block release.
 - Exploratory sessions cover changed high-risk behavior.

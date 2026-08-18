@@ -4,10 +4,13 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 from uuid import uuid4
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from payment_quality_lab.domain.payment import (
     AuthorizationDecision,
@@ -35,6 +38,101 @@ class IdempotencyConflictError(RuntimeError):
     """Idempotency key was reused for a different request."""
 
 
+class ConcurrentPaymentUpdateError(RuntimeError):
+    """A stale payment version attempted to overwrite a newer result."""
+
+
+class FailureInjectionDisabledError(RuntimeError):
+    """A test-only failure control was requested outside demonstration mode."""
+
+
+class FailurePoint(StrEnum):
+    """Deterministic transaction boundaries available to reliability tests."""
+
+    BEFORE_COMMIT = "before_commit"
+    AFTER_COMMIT = "after_commit"
+
+
+class SimulatedPaymentTimeoutError(TimeoutError):
+    """A deterministic timeout raised at a selected transaction boundary."""
+
+    def __init__(self, point: FailurePoint) -> None:
+        self.point = point
+        super().__init__(f"Simulated payment timeout at {point.value}")
+
+
+@dataclass(frozen=True, slots=True)
+class PaymentSnapshot:
+    """Immutable payment representation stored for exact idempotent replay."""
+
+    id: str
+    merchant_reference: str
+    amount: int
+    currency: str
+    status: str
+    authorized_amount: int
+    captured_amount: int
+    refunded_amount: int
+    version: int
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def from_payment(cls, payment: PaymentRecord) -> "PaymentSnapshot":
+        """Copy an ORM payment without retaining mutable session state."""
+        return cls(
+            id=payment.id,
+            merchant_reference=payment.merchant_reference,
+            amount=payment.amount,
+            currency=payment.currency,
+            status=payment.status,
+            authorized_amount=payment.authorized_amount,
+            captured_amount=payment.captured_amount,
+            refunded_amount=payment.refunded_amount,
+            version=payment.version,
+            created_at=payment.created_at,
+            updated_at=payment.updated_at,
+        )
+
+    def serialize(self) -> str:
+        """Return a stable JSON representation for persistence."""
+        return json.dumps(
+            {
+                "amount": self.amount,
+                "authorized_amount": self.authorized_amount,
+                "captured_amount": self.captured_amount,
+                "created_at": self.created_at.isoformat(),
+                "currency": self.currency,
+                "id": self.id,
+                "merchant_reference": self.merchant_reference,
+                "refunded_amount": self.refunded_amount,
+                "status": self.status,
+                "updated_at": self.updated_at.isoformat(),
+                "version": self.version,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+
+    @classmethod
+    def deserialize(cls, payload: str) -> "PaymentSnapshot":
+        """Restore a persisted idempotency response snapshot."""
+        values = json.loads(payload)
+        return cls(
+            id=str(values["id"]),
+            merchant_reference=str(values["merchant_reference"]),
+            amount=int(values["amount"]),
+            currency=str(values["currency"]),
+            status=str(values["status"]),
+            authorized_amount=int(values["authorized_amount"]),
+            captured_amount=int(values["captured_amount"]),
+            refunded_amount=int(values["refunded_amount"]),
+            version=int(values["version"]),
+            created_at=datetime.fromisoformat(values["created_at"]),
+            updated_at=datetime.fromisoformat(values["updated_at"]),
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class AuthorizationCommand:
     """Validated inputs required to authorize a payment."""
@@ -60,7 +158,7 @@ class AuthorizationCommand:
 class AuthorizationOutcome:
     """Persisted payment and whether it came from an idempotent replay."""
 
-    payment: PaymentRecord
+    payment: PaymentRecord | PaymentSnapshot
     replayed: bool
 
 
@@ -87,26 +185,92 @@ class LifecycleCommand:
 class LifecycleOutcome:
     """Persisted lifecycle result and whether it was replayed."""
 
-    payment: PaymentRecord
+    payment: PaymentRecord | PaymentSnapshot
     replayed: bool
 
 
-def _find_idempotent_payment(
+def _find_idempotent_snapshot(
     session: Session,
     *,
     idempotency_key: str,
     fingerprint: str,
-) -> PaymentRecord | None:
-    """Return a prior payment result or reject conflicting key reuse."""
+) -> PaymentSnapshot | None:
+    """Return an immutable prior result or reject conflicting key reuse."""
     existing = session.get(IdempotencyRecord, idempotency_key)
     if existing is None:
         return None
     if existing.request_fingerprint != fingerprint:
         raise IdempotencyConflictError
-    payment = session.get(PaymentRecord, existing.payment_id)
-    if payment is None:  # pragma: no cover - protected by foreign key design
-        raise PaymentNotFoundError(existing.payment_id)
-    return payment
+    if existing.response_snapshot is None:  # pragma: no cover - never committed
+        raise RuntimeError("Idempotency record has no completed response")
+    return PaymentSnapshot.deserialize(existing.response_snapshot)
+
+
+def _claim_idempotency_key(
+    session: Session,
+    *,
+    idempotency_key: str,
+    fingerprint: str,
+    operation: str,
+) -> tuple[IdempotencyRecord | None, PaymentSnapshot | None]:
+    """Claim a key before mutation or replay a concurrently committed result."""
+    replay = _find_idempotent_snapshot(
+        session,
+        idempotency_key=idempotency_key,
+        fingerprint=fingerprint,
+    )
+    if replay is not None:
+        return None, replay
+
+    claim = IdempotencyRecord(
+        key=idempotency_key,
+        request_fingerprint=fingerprint,
+        operation=operation,
+        payment_id=None,
+        response_snapshot=None,
+        created_at=datetime.now(UTC),
+    )
+    session.add(claim)
+    try:
+        session.flush()
+    except IntegrityError:
+        session.rollback()
+        replay = _find_idempotent_snapshot(
+            session,
+            idempotency_key=idempotency_key,
+            fingerprint=fingerprint,
+        )
+        if replay is None:  # pragma: no cover - defensive unexpected constraint
+            raise
+        return None, replay
+    return claim, None
+
+
+def _commit_financial_outcome(
+    session: Session,
+    *,
+    claim: IdempotencyRecord,
+    payment: PaymentRecord,
+    failure_point: FailurePoint | None,
+) -> None:
+    """Commit payment, ledger, claim, and response snapshot atomically."""
+    try:
+        session.flush()
+        claim.payment_id = payment.id
+        claim.response_snapshot = PaymentSnapshot.from_payment(payment).serialize()
+        session.flush()
+        if failure_point is FailurePoint.BEFORE_COMMIT:
+            raise SimulatedPaymentTimeoutError(failure_point)
+        session.commit()
+    except StaleDataError as error:
+        session.rollback()
+        raise ConcurrentPaymentUpdateError(payment.id) from error
+    except Exception:
+        session.rollback()
+        raise
+
+    if failure_point is FailurePoint.AFTER_COMMIT:
+        raise SimulatedPaymentTimeoutError(failure_point)
 
 
 def authorize_payment(
@@ -114,16 +278,41 @@ def authorize_payment(
     *,
     command: AuthorizationCommand,
     idempotency_key: str,
+    failure_point: FailurePoint | None = None,
 ) -> AuthorizationOutcome:
     """Create one authorization outcome atomically or replay the original."""
     fingerprint = command.fingerprint()
-    payment = _find_idempotent_payment(
+    claim, replay = _claim_idempotency_key(
         session,
         idempotency_key=idempotency_key,
         fingerprint=fingerprint,
+        operation="AUTHORIZE",
     )
-    if payment is not None:
-        return AuthorizationOutcome(payment=payment, replayed=True)
+    if replay is not None:
+        return AuthorizationOutcome(payment=replay, replayed=True)
+    assert claim is not None
+
+    try:
+        return _execute_claimed_authorization(
+            session,
+            command=command,
+            claim=claim,
+            failure_point=failure_point,
+        )
+    except Exception:
+        if session.in_transaction():
+            session.rollback()
+        raise
+
+
+def _execute_claimed_authorization(
+    session: Session,
+    *,
+    command: AuthorizationCommand,
+    claim: IdempotencyRecord,
+    failure_point: FailurePoint | None,
+) -> AuthorizationOutcome:
+    """Validate and commit an authorization after its key is claimed."""
 
     result = authorize(command.amount, command.payment_method_token)
     now = datetime.now(UTC)
@@ -157,16 +346,12 @@ def authorize_payment(
             )
         )
 
-    session.add(
-        IdempotencyRecord(
-            key=idempotency_key,
-            request_fingerprint=fingerprint,
-            operation="AUTHORIZE",
-            payment_id=payment.id,
-            created_at=now,
-        )
+    _commit_financial_outcome(
+        session,
+        claim=claim,
+        payment=payment,
+        failure_point=failure_point,
     )
-    session.commit()
     return AuthorizationOutcome(payment=payment, replayed=False)
 
 
@@ -185,16 +370,41 @@ def _apply_lifecycle_operation(
     *,
     command: LifecycleCommand,
     idempotency_key: str,
+    failure_point: FailurePoint | None,
 ) -> LifecycleOutcome:
     """Apply one lifecycle transition and ledger effect atomically."""
     fingerprint = command.fingerprint()
-    replayed_payment = _find_idempotent_payment(
+    claim, replay = _claim_idempotency_key(
         session,
         idempotency_key=idempotency_key,
         fingerprint=fingerprint,
+        operation=command.operation.value,
     )
-    if replayed_payment is not None:
-        return LifecycleOutcome(payment=replayed_payment, replayed=True)
+    if replay is not None:
+        return LifecycleOutcome(payment=replay, replayed=True)
+    assert claim is not None
+
+    try:
+        return _execute_claimed_lifecycle_operation(
+            session,
+            command=command,
+            claim=claim,
+            failure_point=failure_point,
+        )
+    except Exception:
+        if session.in_transaction():
+            session.rollback()
+        raise
+
+
+def _execute_claimed_lifecycle_operation(
+    session: Session,
+    *,
+    command: LifecycleCommand,
+    claim: IdempotencyRecord,
+    failure_point: FailurePoint | None,
+) -> LifecycleOutcome:
+    """Validate and commit an operation after its idempotency claim is held."""
 
     payment = get_payment(session, command.payment_id)
     current_state = _payment_state(payment)
@@ -216,7 +426,6 @@ def _apply_lifecycle_operation(
     payment.authorized_amount = next_state.authorized_amount
     payment.captured_amount = next_state.captured_amount
     payment.refunded_amount = next_state.refunded_amount
-    payment.version += 1
     payment.updated_at = now
 
     session.add(
@@ -229,16 +438,12 @@ def _apply_lifecycle_operation(
             created_at=now,
         )
     )
-    session.add(
-        IdempotencyRecord(
-            key=idempotency_key,
-            request_fingerprint=fingerprint,
-            operation=command.operation.value,
-            payment_id=payment.id,
-            created_at=now,
-        )
+    _commit_financial_outcome(
+        session,
+        claim=claim,
+        payment=payment,
+        failure_point=failure_point,
     )
-    session.commit()
     return LifecycleOutcome(payment=payment, replayed=False)
 
 
@@ -247,6 +452,7 @@ def capture_payment(
     *,
     payment_id: str,
     idempotency_key: str,
+    failure_point: FailurePoint | None = None,
 ) -> LifecycleOutcome:
     """Capture the full authorization exactly once."""
     return _apply_lifecycle_operation(
@@ -256,6 +462,7 @@ def capture_payment(
             operation=PaymentOperation.CAPTURE,
         ),
         idempotency_key=idempotency_key,
+        failure_point=failure_point,
     )
 
 
@@ -264,6 +471,7 @@ def cancel_payment(
     *,
     payment_id: str,
     idempotency_key: str,
+    failure_point: FailurePoint | None = None,
 ) -> LifecycleOutcome:
     """Cancel an uncaptured authorization exactly once."""
     return _apply_lifecycle_operation(
@@ -273,6 +481,7 @@ def cancel_payment(
             operation=PaymentOperation.CANCEL,
         ),
         idempotency_key=idempotency_key,
+        failure_point=failure_point,
     )
 
 
@@ -282,6 +491,7 @@ def refund_payment(
     payment_id: str,
     amount: int,
     idempotency_key: str,
+    failure_point: FailurePoint | None = None,
 ) -> LifecycleOutcome:
     """Refund captured funds exactly once."""
     return _apply_lifecycle_operation(
@@ -292,6 +502,7 @@ def refund_payment(
             amount=amount,
         ),
         idempotency_key=idempotency_key,
+        failure_point=failure_point,
     )
 
 

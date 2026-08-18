@@ -20,12 +20,19 @@ from payment_quality_lab.persistence.database import (
     session_scope,
 )
 from payment_quality_lab.services.payments import (
+    ConcurrentPaymentUpdateError,
+    FailureInjectionDisabledError,
     IdempotencyConflictError,
     PaymentNotFoundError,
+    SimulatedPaymentTimeoutError,
 )
 
 
-def create_app(database_url: str | None = None) -> FastAPI:
+def create_app(
+    database_url: str | None = None,
+    *,
+    enable_failure_injection: bool = False,
+) -> FastAPI:
     """Construct an isolated application instance."""
     resolved_url = database_url or os.getenv(
         "PAYMENT_LAB_DATABASE_URL", "sqlite:///payment_lab.db"
@@ -36,11 +43,12 @@ def create_app(database_url: str | None = None) -> FastAPI:
 
     app = FastAPI(
         title="Payment Platform Quality Lab",
-        version="0.2.0",
+        version="0.3.0",
         description="Privacy-safe payment lifecycle simulator",
     )
     app.state.engine = engine
     app.state.session_factory = session_factory
+    app.state.failure_injection_enabled = enable_failure_injection
 
     def provide_session() -> Iterator[Session]:
         yield from session_scope(session_factory)
@@ -69,6 +77,44 @@ def create_app(database_url: str | None = None) -> FastAPI:
             content={
                 "code": "idempotency_conflict",
                 "message": "Idempotency key was already used for another request",
+            },
+        )
+
+    @app.exception_handler(ConcurrentPaymentUpdateError)
+    async def concurrent_payment_update(
+        _request: Request, _error: ConcurrentPaymentUpdateError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "code": "concurrent_payment_update",
+                "message": "Payment changed concurrently; retrieve it before retrying",
+            },
+        )
+
+    @app.exception_handler(FailureInjectionDisabledError)
+    async def failure_injection_disabled(
+        _request: Request, _error: FailureInjectionDisabledError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={
+                "code": "failure_injection_disabled",
+                "message": "Test failure controls are disabled",
+            },
+        )
+
+    @app.exception_handler(SimulatedPaymentTimeoutError)
+    async def simulated_payment_timeout(
+        _request: Request, _error: SimulatedPaymentTimeoutError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            content={
+                "code": "payment_timeout",
+                "message": (
+                    "Payment outcome is uncertain; retry with the same idempotency key"
+                ),
             },
         )
 

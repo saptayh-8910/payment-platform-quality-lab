@@ -1,8 +1,9 @@
 """Persistence models for payments, ledger entries, and idempotency records."""
 
 from datetime import datetime
+from typing import ClassVar
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from payment_quality_lab.persistence.database import Base
@@ -45,6 +46,10 @@ class PaymentRecord(Base):
         back_populates="payment",
     )
 
+    __mapper_args__: ClassVar[dict[str, object]] = {
+        "version_id_col": version,
+    }
+
 
 class LedgerEntryRecord(Base):
     """Immutable financial effect recorded for a payment."""
@@ -73,8 +78,10 @@ class IdempotencyRecord(Base):
     key: Mapped[str] = mapped_column(String(128), primary_key=True)
     request_fingerprint: Mapped[str] = mapped_column(String(64))
     operation: Mapped[str] = mapped_column(String(32))
-    payment_id: Mapped[str] = mapped_column(
+    payment_id: Mapped[str | None] = mapped_column(
         ForeignKey("payments.id", ondelete="RESTRICT"),
         index=True,
+        nullable=True,
     )
+    response_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

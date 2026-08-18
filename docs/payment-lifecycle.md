@@ -32,6 +32,8 @@ Partial capture and authorization expiry are outside the current scope.
 Every state-changing request requires an `Idempotency-Key` header. Equivalent
 retries create no additional ledger effect or payment version. Reusing a key for
 a different payment, operation, or amount returns an idempotency conflict.
+The first accepted request stores an immutable response snapshot; later retries
+return that snapshot rather than the payment's current mutable state.
 
 ## Financial invariants
 
@@ -43,6 +45,7 @@ The domain layer and fresh database schema both enforce:
 - capture uses the full authorized amount;
 - cumulative refunds never exceed captured funds;
 - accepted lifecycle operations increment the version exactly once;
+- stale writers cannot overwrite a newer payment version;
 - rejected operations leave the aggregate unchanged.
 
 Hypothesis generates valid authorization and refund amounts to exercise these

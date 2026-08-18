@@ -15,7 +15,10 @@ def create_database_engine(database_url: str) -> Engine:
     """Create an engine suitable for local SQLite and isolated tests."""
     options: dict[str, object] = {}
     if database_url.startswith("sqlite"):
-        options["connect_args"] = {"check_same_thread": False}
+        options["connect_args"] = {
+            "check_same_thread": False,
+            "timeout": 30,
+        }
     if database_url == "sqlite:///:memory:":
         options["poolclass"] = StaticPool
     engine = create_engine(database_url, **options)
@@ -25,6 +28,7 @@ def create_database_engine(database_url: str) -> Engine:
         def enable_foreign_keys(dbapi_connection, _connection_record) -> None:
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA busy_timeout=30000")
             cursor.close()
 
     return engine
