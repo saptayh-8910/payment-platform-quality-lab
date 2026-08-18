@@ -35,7 +35,7 @@ webhook events, deterministic failure injection, and reconciliation tooling.
 Planned test tooling:
 
 - pytest for domain, API, and integration testing
-- HTTPX for service-level API clients
+- FastAPI TestClient for service-level API checks
 - Playwright for English/Japanese browser journeys
 - Hypothesis for financial and state-machine invariants
 - Locust for a small reliability and performance baseline
@@ -55,14 +55,61 @@ Planned test tooling:
 
 ## Current status
 
-The project is in its foundation phase. Requirements and the initial test plan
-are documented before implementation so that the API and tests can be derived
-from explicit payment risks and invariants.
+The first vertical slice implements deterministic payment authorization and
+decline behavior through a FastAPI service. Approved payments create one
+financial ledger entry, declined payments create none, and equivalent requests
+can safely replay their original result using an idempotency key.
+
+Current automated evidence includes pure domain tests, HTTP contract tests,
+SQLite integration tests, branch-aware coverage, linting, formatting, and a
+Python 3.12/3.14 GitHub Actions matrix.
+
+## Quick start
+
+Python 3.12 or newer is required.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --editable '.[dev]'
+python -m pytest
+```
+
+Start the service:
+
+```bash
+payment-quality-lab
+```
+
+The API documentation is then available at
+<http://127.0.0.1:8000/docs>.
+
+Create a synthetic JPY authorization:
+
+```bash
+curl --request POST http://127.0.0.1:8000/payments \
+  --header 'Content-Type: application/json' \
+  --header 'Idempotency-Key: demo-order-0001' \
+  --data '{
+    "merchant_reference": "order-2026-0001",
+    "amount": 2500,
+    "currency": "JPY",
+    "payment_method_token": "tok_approved"
+  }'
+```
+
+Only deterministic synthetic tokens are accepted:
+
+- `tok_approved` creates an authorized payment and authorization ledger entry.
+- `tok_declined` creates a declined payment without a financial ledger effect.
+
+These are simulator controls, not real payment credentials.
 
 See:
 
 - [Payment requirements](docs/payment-requirements.md)
 - [Risk-based test plan](docs/test-plan.md)
+- [Defect reports](docs/defects/)
 
 ## License
 
