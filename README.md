@@ -137,6 +137,7 @@ See:
 - [Payment lifecycle](docs/payment-lifecycle.md)
 - [Idempotency and failure recovery](docs/payment-reliability.md)
 - [Risk-based test plan](docs/test-plan.md)
+- [Quality evidence and milestone reports](docs/quality/README.md)
 - [Defect reports](docs/defects/)
 
 ## License
