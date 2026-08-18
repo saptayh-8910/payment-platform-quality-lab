@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Response, status
+from fastapi import APIRouter, Depends, Header, Request, Response, status
 from sqlalchemy.orm import Session
 
 from payment_quality_lab.api.schemas import (
@@ -13,6 +13,8 @@ from payment_quality_lab.api.schemas import (
 )
 from payment_quality_lab.services.payments import (
     AuthorizationCommand,
+    FailureInjectionDisabledError,
+    FailurePoint,
     LifecycleOutcome,
     authorize_payment,
     cancel_payment,
@@ -35,6 +37,23 @@ IdempotencyKey = Annotated[
     str,
     Header(alias="Idempotency-Key", min_length=8, max_length=128),
 ]
+FailurePointHeader = Annotated[
+    FailurePoint | None,
+    Header(alias="X-Payment-Lab-Failure"),
+]
+
+
+def resolve_failure_point(
+    request: Request,
+    failure_point: FailurePointHeader = None,
+) -> FailurePoint | None:
+    """Expose deterministic failures only in an explicitly enabled app."""
+    if failure_point is not None and not request.app.state.failure_injection_enabled:
+        raise FailureInjectionDisabledError
+    return failure_point
+
+
+FailurePointDependency = Annotated[FailurePoint | None, Depends(resolve_failure_point)]
 
 
 @router.get("/health", tags=["operations"])
@@ -54,6 +73,7 @@ def create_payment(
     idempotency_key: IdempotencyKey,
     session: SessionDependency,
     response: Response,
+    failure_point: FailurePointDependency,
 ) -> PaymentResponse:
     """Authorize or decline a payment using deterministic synthetic tokens."""
     outcome = authorize_payment(
@@ -65,6 +85,7 @@ def create_payment(
             payment_method_token=payload.payment_method_token,
         ),
         idempotency_key=idempotency_key,
+        failure_point=failure_point,
     )
     if outcome.replayed:
         response.status_code = status.HTTP_200_OK
@@ -91,12 +112,14 @@ def capture_authorization(
     idempotency_key: IdempotencyKey,
     session: SessionDependency,
     response: Response,
+    failure_point: FailurePointDependency,
 ) -> PaymentResponse:
     """Capture the full amount of an authorized payment."""
     outcome = capture_payment(
         session,
         payment_id=payment_id,
         idempotency_key=idempotency_key,
+        failure_point=failure_point,
     )
     return _lifecycle_response(outcome, response)
 
@@ -111,12 +134,14 @@ def cancel_authorization(
     idempotency_key: IdempotencyKey,
     session: SessionDependency,
     response: Response,
+    failure_point: FailurePointDependency,
 ) -> PaymentResponse:
     """Cancel an authorized payment before capture."""
     outcome = cancel_payment(
         session,
         payment_id=payment_id,
         idempotency_key=idempotency_key,
+        failure_point=failure_point,
     )
     return _lifecycle_response(outcome, response)
 
@@ -132,6 +157,7 @@ def refund_capture(
     idempotency_key: IdempotencyKey,
     session: SessionDependency,
     response: Response,
+    failure_point: FailurePointDependency,
 ) -> PaymentResponse:
     """Apply a partial or full refund to captured funds."""
     outcome = refund_payment(
@@ -139,6 +165,7 @@ def refund_capture(
         payment_id=payment_id,
         amount=payload.amount,
         idempotency_key=idempotency_key,
+        failure_point=failure_point,
     )
     return _lifecycle_response(outcome, response)
 

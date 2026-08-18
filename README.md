@@ -29,9 +29,9 @@ processing real payments or cardholder data.
 
 The system under test is a small Python payment service that will later include
 a minimal English/Japanese checkout. The service uses integer minor units, an
-explicit payment state machine, an immutable ledger, and idempotent write
-operations. Signed webhook events, deterministic failure injection, and
-reconciliation tooling are planned milestones.
+explicit payment state machine, an immutable ledger, idempotency claims with
+immutable response snapshots, and optimistic concurrency control. Signed
+webhook events and reconciliation tooling are planned milestones.
 
 Planned test tooling:
 
@@ -66,6 +66,14 @@ Current automated evidence includes example-based and Hypothesis-generated
 domain tests, HTTP contract tests, SQLite integration and constraint tests,
 branch-aware coverage, linting, formatting, and a Python 3.12/3.14 GitHub
 Actions matrix.
+
+Concurrent equivalent requests now claim one idempotency key before applying a
+financial mutation. Successful outcomes store an immutable response snapshot,
+so a later retry returns the original result even after the payment changes.
+Optimistic version checks reject stale competing transitions, while deterministic
+pre-commit and post-commit timeouts demonstrate rollback and safe retry behavior.
+Failure controls are disabled unless an application instance explicitly enables
+test/demo mode.
 
 ## Quick start
 
@@ -127,6 +135,7 @@ See:
 
 - [Payment requirements](docs/payment-requirements.md)
 - [Payment lifecycle](docs/payment-lifecycle.md)
+- [Idempotency and failure recovery](docs/payment-reliability.md)
 - [Risk-based test plan](docs/test-plan.md)
 - [Defect reports](docs/defects/)
 

@@ -10,6 +10,7 @@ from payment_quality_lab.domain.payment import (
     PaymentStatus,
 )
 from payment_quality_lab.persistence.models import LedgerEntryRecord, PaymentRecord
+from payment_quality_lab.services.payments import PaymentSnapshot
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -54,7 +55,7 @@ class PaymentResponse(BaseModel):
     updated_at: datetime
 
     @classmethod
-    def from_record(cls, payment: PaymentRecord) -> "PaymentResponse":
+    def from_record(cls, payment: PaymentRecord | PaymentSnapshot) -> "PaymentResponse":
         """Map persistence data without exposing ORM internals."""
         return cls(
             id=payment.id,
