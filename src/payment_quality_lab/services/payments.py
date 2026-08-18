@@ -28,6 +28,10 @@ from payment_quality_lab.persistence.models import (
     LedgerEntryRecord,
     PaymentRecord,
 )
+from payment_quality_lab.services.webhooks import (
+    WebhookEventType,
+    create_outbox_event,
+)
 
 
 class PaymentNotFoundError(LookupError):
@@ -251,11 +255,13 @@ def _commit_financial_outcome(
     *,
     claim: IdempotencyRecord,
     payment: PaymentRecord,
+    event_type: WebhookEventType,
     failure_point: FailurePoint | None,
 ) -> None:
-    """Commit payment, ledger, claim, and response snapshot atomically."""
+    """Commit financial state, response snapshot, and outbox event atomically."""
     try:
         session.flush()
+        create_outbox_event(session, payment=payment, event_type=event_type)
         claim.payment_id = payment.id
         claim.response_snapshot = PaymentSnapshot.from_payment(payment).serialize()
         session.flush()
@@ -350,6 +356,11 @@ def _execute_claimed_authorization(
         session,
         claim=claim,
         payment=payment,
+        event_type=(
+            WebhookEventType.AUTHORIZED
+            if result.status is PaymentStatus.AUTHORIZED
+            else WebhookEventType.DECLINED
+        ),
         failure_point=failure_point,
     )
     return AuthorizationOutcome(payment=payment, replayed=False)
@@ -442,6 +453,11 @@ def _execute_claimed_lifecycle_operation(
         session,
         claim=claim,
         payment=payment,
+        event_type={
+            PaymentOperation.CAPTURE: WebhookEventType.CAPTURED,
+            PaymentOperation.CANCEL: WebhookEventType.CANCELLED,
+            PaymentOperation.REFUND: WebhookEventType.REFUNDED,
+        }[command.operation],
         failure_point=failure_point,
     )
     return LifecycleOutcome(payment=payment, replayed=False)

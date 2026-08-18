@@ -26,12 +26,26 @@ from payment_quality_lab.services.payments import (
     PaymentNotFoundError,
     SimulatedPaymentTimeoutError,
 )
+from payment_quality_lab.services.webhooks import (
+    ConcurrentWebhookConsumerError,
+    InvalidWebhookPayloadError,
+    InvalidWebhookSignatureError,
+    MerchantProjectionNotFoundError,
+    SimulatedConsumerPersistenceError,
+    WebhookDeliveryNotReadyError,
+    WebhookEventCollisionError,
+    WebhookEventNotFoundError,
+    WebhookVersionConflictError,
+)
+
+DEFAULT_WEBHOOK_SIGNING_SECRET = "whsec_local_synthetic_only"
 
 
 def create_app(
     database_url: str | None = None,
     *,
     enable_failure_injection: bool = False,
+    webhook_signing_secret: str = DEFAULT_WEBHOOK_SIGNING_SECRET,
 ) -> FastAPI:
     """Construct an isolated application instance."""
     resolved_url = database_url or os.getenv(
@@ -43,12 +57,13 @@ def create_app(
 
     app = FastAPI(
         title="Payment Platform Quality Lab",
-        version="0.3.0",
+        version="0.4.0",
         description="Privacy-safe payment lifecycle simulator",
     )
     app.state.engine = engine
     app.state.session_factory = session_factory
     app.state.failure_injection_enabled = enable_failure_injection
+    app.state.webhook_signing_secret = webhook_signing_secret
 
     def provide_session() -> Iterator[Session]:
         yield from session_scope(session_factory)
@@ -115,6 +130,114 @@ def create_app(
                 "message": (
                     "Payment outcome is uncertain; retry with the same idempotency key"
                 ),
+            },
+        )
+
+    @app.exception_handler(InvalidWebhookSignatureError)
+    async def invalid_webhook_signature(
+        _request: Request, error: InvalidWebhookSignatureError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={
+                "code": "invalid_webhook_signature",
+                "message": str(error),
+            },
+        )
+
+    @app.exception_handler(InvalidWebhookPayloadError)
+    async def invalid_webhook_payload(
+        _request: Request, error: InvalidWebhookPayloadError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={
+                "code": "invalid_webhook_payload",
+                "message": str(error),
+            },
+        )
+
+    @app.exception_handler(WebhookEventCollisionError)
+    async def webhook_event_collision(
+        _request: Request, _error: WebhookEventCollisionError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "code": "webhook_event_collision",
+                "message": "Webhook event ID was reused with different content",
+            },
+        )
+
+    @app.exception_handler(WebhookVersionConflictError)
+    async def webhook_version_conflict(
+        _request: Request, _error: WebhookVersionConflictError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "code": "webhook_version_conflict",
+                "message": "Payment version conflicts with the merchant projection",
+            },
+        )
+
+    @app.exception_handler(ConcurrentWebhookConsumerError)
+    async def concurrent_webhook_consumer(
+        _request: Request, _error: ConcurrentWebhookConsumerError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "code": "concurrent_webhook_consumer",
+                "message": "Merchant projection changed concurrently; retry the event",
+            },
+        )
+
+    @app.exception_handler(WebhookDeliveryNotReadyError)
+    async def webhook_delivery_not_ready(
+        _request: Request, _error: WebhookDeliveryNotReadyError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "code": "webhook_delivery_not_ready",
+                "message": "Webhook event is not ready for a delivery attempt",
+            },
+        )
+
+    @app.exception_handler(WebhookEventNotFoundError)
+    async def webhook_event_not_found(
+        _request: Request, error: WebhookEventNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={
+                "code": "webhook_event_not_found",
+                "message": f"Webhook event {error.args[0]} was not found",
+            },
+        )
+
+    @app.exception_handler(MerchantProjectionNotFoundError)
+    async def merchant_projection_not_found(
+        _request: Request, error: MerchantProjectionNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={
+                "code": "merchant_projection_not_found",
+                "message": f"Merchant projection {error.args[0]} was not found",
+            },
+        )
+
+    @app.exception_handler(SimulatedConsumerPersistenceError)
+    async def simulated_consumer_failure(
+        _request: Request, _error: SimulatedConsumerPersistenceError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "code": "simulated_consumer_failure",
+                "message": "Consumer transaction failed before commit",
             },
         )
 

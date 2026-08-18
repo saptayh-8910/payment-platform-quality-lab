@@ -17,9 +17,9 @@ a substitute for relevant coverage.
 | Post-commit timeout | An uncertain client result must be safe to retry | M4 `FT-04`, `API-03`, `API-04` | Integration and API reliability tests | Complete |
 | Failure control safety | Test controls must be disabled by default | M4 `API-01` | `tests/api/test_failure_recovery.py` | Complete |
 | Ledger agreement | Payment totals must equal applicable ledger entries | M4 `LED-01` | `tests/integration/test_payment_reliability.py` | Complete |
-| Webhook creation | A successful lifecycle change creates one event | M5 `W01` to `W08` | Planned | Draft |
-| Signature verification | Invalid signed payloads must be rejected | M5 `S01` to `S05` | Planned | Draft |
-| At-least-once delivery | A duplicate delivery must not repeat an effect | M5 `D01` to `D08`, `C01` to `C09` | Planned | Draft |
+| Webhook creation | A successful lifecycle change creates one event | M5 `W01` to `W08` | `tests/integration/test_webhook_delivery.py` | In progress |
+| Signature verification | Invalid signed payloads must be rejected | M5 `S01` to `S05` | Unit and API webhook tests | In progress |
+| At-least-once delivery | A duplicate delivery must not repeat an effect | M5 `D01` to `D08`, `C01` to `C09` | Integration and API webhook tests | In progress |
 | Reconciliation | Payment, ledger, webhook, and settlement sources must agree | M5 `R01` to `R14` | Planned | Draft |
 | Multilingual checkout | English and Japanese journeys must remain usable | Milestone 6 catalog | Planned | Planned |
 | Exploratory quality | Changed high-risk behavior must receive manual investigation | Milestone 7 charter | Planned | Planned |

@@ -4,7 +4,7 @@ from collections.abc import Iterator
 
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool, StaticPool
 
 
 class Base(DeclarativeBase):
@@ -21,6 +21,8 @@ def create_database_engine(database_url: str) -> Engine:
         }
     if database_url == "sqlite:///:memory:":
         options["poolclass"] = StaticPool
+    elif database_url.startswith("sqlite"):
+        options["poolclass"] = NullPool
     engine = create_engine(database_url, **options)
     if database_url.startswith("sqlite"):
 

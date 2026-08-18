@@ -1,5 +1,6 @@
 """Payment HTTP endpoints."""
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Request, Response, status
@@ -8,8 +9,13 @@ from sqlalchemy.orm import Session
 from payment_quality_lab.api.schemas import (
     AuthorizePaymentRequest,
     LedgerEntryResponse,
+    MerchantProjectionResponse,
     PaymentResponse,
     RefundPaymentRequest,
+    WebhookConsumerResponse,
+    WebhookDeliveryAttemptResponse,
+    WebhookDeliveryResponse,
+    WebhookEventResponse,
 )
 from payment_quality_lab.services.payments import (
     AuthorizationCommand,
@@ -22,6 +28,15 @@ from payment_quality_lab.services.payments import (
     get_ledger_entries,
     get_payment,
     refund_payment,
+)
+from payment_quality_lab.services.webhooks import (
+    ConsumerFault,
+    DeliveryFault,
+    consume_webhook,
+    dispatch_webhook,
+    get_delivery_attempts,
+    get_webhook_events,
+    require_merchant_projection,
 )
 
 router = APIRouter()
@@ -41,6 +56,18 @@ FailurePointHeader = Annotated[
     FailurePoint | None,
     Header(alias="X-Payment-Lab-Failure"),
 ]
+DeliveryFaultHeader = Annotated[
+    DeliveryFault | None,
+    Header(alias="X-Payment-Lab-Delivery-Failure"),
+]
+ConsumerFaultHeader = Annotated[
+    ConsumerFault | None,
+    Header(alias="X-Payment-Lab-Consumer-Failure"),
+]
+WebhookSignature = Annotated[
+    str,
+    Header(alias="Webhook-Signature", min_length=1),
+]
 
 
 def resolve_failure_point(
@@ -54,6 +81,34 @@ def resolve_failure_point(
 
 
 FailurePointDependency = Annotated[FailurePoint | None, Depends(resolve_failure_point)]
+
+
+def resolve_delivery_fault(
+    request: Request,
+    fault: DeliveryFaultHeader = None,
+) -> DeliveryFault | None:
+    """Allow deterministic delivery failures only in explicit test mode."""
+    if fault is not None and not request.app.state.failure_injection_enabled:
+        raise FailureInjectionDisabledError
+    return fault
+
+
+def resolve_consumer_fault(
+    request: Request,
+    fault: ConsumerFaultHeader = None,
+) -> ConsumerFault | None:
+    """Allow deterministic consumer failures only in explicit test mode."""
+    if fault is not None and not request.app.state.failure_injection_enabled:
+        raise FailureInjectionDisabledError
+    return fault
+
+
+DeliveryFaultDependency = Annotated[
+    DeliveryFault | None, Depends(resolve_delivery_fault)
+]
+ConsumerFaultDependency = Annotated[
+    ConsumerFault | None, Depends(resolve_consumer_fault)
+]
 
 
 @router.get("/health", tags=["operations"])
@@ -193,3 +248,106 @@ def retrieve_ledger(
         LedgerEntryResponse.from_record(entry)
         for entry in get_ledger_entries(session, payment_id)
     ]
+
+
+@router.get(
+    "/webhooks/events",
+    response_model=list[WebhookEventResponse],
+    tags=["webhooks"],
+)
+def retrieve_webhook_events(
+    session: SessionDependency,
+) -> list[WebhookEventResponse]:
+    """List producer outbox events and their delivery state."""
+    return [
+        WebhookEventResponse.from_record(event) for event in get_webhook_events(session)
+    ]
+
+
+@router.get(
+    "/webhooks/events/{event_id}/attempts",
+    response_model=list[WebhookDeliveryAttemptResponse],
+    tags=["webhooks"],
+)
+def retrieve_webhook_attempts(
+    event_id: str,
+    session: SessionDependency,
+) -> list[WebhookDeliveryAttemptResponse]:
+    """List the deterministic delivery history for one event."""
+    return [
+        WebhookDeliveryAttemptResponse.from_record(attempt)
+        for attempt in get_delivery_attempts(session, event_id)
+    ]
+
+
+@router.post(
+    "/webhook-consumer",
+    response_model=WebhookConsumerResponse,
+    tags=["webhooks"],
+)
+async def receive_webhook(
+    request: Request,
+    signature: WebhookSignature,
+    session: SessionDependency,
+    fault: ConsumerFaultDependency,
+) -> WebhookConsumerResponse:
+    """Verify and apply a signed event to the merchant projection."""
+    outcome = consume_webhook(
+        session,
+        payload=await request.body(),
+        signature_header=signature,
+        secret=request.app.state.webhook_signing_secret,
+        now=datetime.now(UTC),
+        fail_after_inbox=fault is ConsumerFault.AFTER_INBOX,
+    )
+    return WebhookConsumerResponse.from_outcome(outcome)
+
+
+@router.post(
+    "/webhooks/events/{event_id}/deliver",
+    response_model=WebhookDeliveryResponse,
+    tags=["webhooks"],
+)
+def deliver_webhook_event(
+    event_id: str,
+    request: Request,
+    session: SessionDependency,
+    fault: DeliveryFaultDependency,
+) -> WebhookDeliveryResponse:
+    """Run one signed in-process delivery attempt for the simulator."""
+
+    def receiver(payload: bytes, signature: str, received_at: datetime) -> int:
+        with request.app.state.session_factory() as consumer_session:
+            consume_webhook(
+                consumer_session,
+                payload=payload,
+                signature_header=signature,
+                secret=request.app.state.webhook_signing_secret,
+                now=received_at,
+            )
+        return status.HTTP_200_OK
+
+    result = dispatch_webhook(
+        session,
+        event_id=event_id,
+        secret=request.app.state.webhook_signing_secret,
+        receiver=receiver,
+        now=datetime.now(UTC),
+        fault=fault,
+    )
+    return WebhookDeliveryResponse.from_result(result)
+
+
+@router.get(
+    "/merchant-projections/{payment_id}",
+    response_model=MerchantProjectionResponse,
+    tags=["webhooks"],
+)
+def retrieve_merchant_projection(
+    payment_id: str,
+    session: SessionDependency,
+) -> MerchantProjectionResponse:
+    """Retrieve the merchant view built only from accepted webhooks."""
+    return MerchantProjectionResponse.from_record(
+        require_merchant_projection(session, payment_id)
+    )
