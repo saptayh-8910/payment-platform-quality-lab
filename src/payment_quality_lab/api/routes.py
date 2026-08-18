@@ -9,12 +9,17 @@ from payment_quality_lab.api.schemas import (
     AuthorizePaymentRequest,
     LedgerEntryResponse,
     PaymentResponse,
+    RefundPaymentRequest,
 )
 from payment_quality_lab.services.payments import (
     AuthorizationCommand,
+    LifecycleOutcome,
     authorize_payment,
+    cancel_payment,
+    capture_payment,
     get_ledger_entries,
     get_payment,
+    refund_payment,
 )
 
 router = APIRouter()
@@ -65,6 +70,77 @@ def create_payment(
         response.status_code = status.HTTP_200_OK
         response.headers["Idempotent-Replayed"] = "true"
     return PaymentResponse.from_record(outcome.payment)
+
+
+def _lifecycle_response(
+    outcome: LifecycleOutcome, response: Response
+) -> PaymentResponse:
+    """Map lifecycle outcomes and expose idempotent replay metadata."""
+    if outcome.replayed:
+        response.headers["Idempotent-Replayed"] = "true"
+    return PaymentResponse.from_record(outcome.payment)
+
+
+@router.post(
+    "/payments/{payment_id}/capture",
+    response_model=PaymentResponse,
+    tags=["payments"],
+)
+def capture_authorization(
+    payment_id: str,
+    idempotency_key: IdempotencyKey,
+    session: SessionDependency,
+    response: Response,
+) -> PaymentResponse:
+    """Capture the full amount of an authorized payment."""
+    outcome = capture_payment(
+        session,
+        payment_id=payment_id,
+        idempotency_key=idempotency_key,
+    )
+    return _lifecycle_response(outcome, response)
+
+
+@router.post(
+    "/payments/{payment_id}/cancel",
+    response_model=PaymentResponse,
+    tags=["payments"],
+)
+def cancel_authorization(
+    payment_id: str,
+    idempotency_key: IdempotencyKey,
+    session: SessionDependency,
+    response: Response,
+) -> PaymentResponse:
+    """Cancel an authorized payment before capture."""
+    outcome = cancel_payment(
+        session,
+        payment_id=payment_id,
+        idempotency_key=idempotency_key,
+    )
+    return _lifecycle_response(outcome, response)
+
+
+@router.post(
+    "/payments/{payment_id}/refund",
+    response_model=PaymentResponse,
+    tags=["payments"],
+)
+def refund_capture(
+    payment_id: str,
+    payload: RefundPaymentRequest,
+    idempotency_key: IdempotencyKey,
+    session: SessionDependency,
+    response: Response,
+) -> PaymentResponse:
+    """Apply a partial or full refund to captured funds."""
+    outcome = refund_payment(
+        session,
+        payment_id=payment_id,
+        amount=payload.amount,
+        idempotency_key=idempotency_key,
+    )
+    return _lifecycle_response(outcome, response)
 
 
 @router.get(

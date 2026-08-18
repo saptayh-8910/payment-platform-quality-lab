@@ -173,4 +173,11 @@ def test_openapi_exposes_payment_operations(client: TestClient) -> None:
 
     assert response.status_code == 200
     paths = response.json()["paths"]
-    assert {"/payments", "/payments/{payment_id}"}.issubset(paths)
+    assert {
+        "/payments",
+        "/payments/{payment_id}",
+        "/payments/{payment_id}/capture",
+        "/payments/{payment_id}/cancel",
+        "/payments/{payment_id}/refund",
+        "/payments/{payment_id}/ledger",
+    }.issubset(paths)

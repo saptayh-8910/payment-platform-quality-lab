@@ -6,8 +6,9 @@ This document defines the initial behavioral contract for a simulated payment
 platform. It is intentionally provider-neutral and contains no real payment or
 cardholder data.
 
-The first implementation milestone covers authorization. Later milestones add
-capture, cancellation, refund, webhooks, failure recovery, and reconciliation.
+Authorization, capture, cancellation, and refund are implemented. Later
+milestones add concurrency hardening, webhooks, failure recovery, and
+reconciliation.
 
 ## 2. Domain model
 
@@ -30,7 +31,7 @@ and `1000 USD` means 10.00 US dollars.
 
 ### 2.2 Lifecycle states
 
-The planned states are:
+The supported states are:
 
 - `AUTHORIZED`
 - `DECLINED`
@@ -72,7 +73,8 @@ change.
 - Only an authorized payment may be captured or cancelled.
 - Capture must never exceed the authorized amount.
 - A successful capture creates exactly one capture ledger entry.
-- Cancelling an authorization must prevent future capture.
+- Cancelling an authorization creates one cancellation ledger entry and must
+  prevent future capture.
 - Repeating a successful operation with the same idempotency key must not create
   another ledger entry.
 
@@ -82,6 +84,7 @@ change.
 - The cumulative refunded amount must never exceed the captured amount.
 - Every successful refund creates one ledger entry with a unique operation ID.
 - Full and partial refund states must agree with captured and refunded totals.
+- Rejected and over-limit refunds must not change payment or ledger state.
 
 ### 3.4 Idempotency
 
