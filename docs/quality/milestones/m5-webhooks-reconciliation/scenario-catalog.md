@@ -7,7 +7,7 @@
 | Milestone | 5: Webhook delivery, consumption, and reconciliation |
 | Status | Draft for review |
 | Owner | Sapta Y Husain |
-| Planned delivery | PR 4 for webhooks and PR 5 for reconciliation |
+| Planned delivery | Two implementation PRs: webhooks, then reconciliation |
 | Requirements | Webhooks, failure injection, and reconciliation in `docs/payment-requirements.md` |
 | Previous evidence | [Milestone 4 quality report](../m4-idempotency-recovery/quality-report.md) |
 
