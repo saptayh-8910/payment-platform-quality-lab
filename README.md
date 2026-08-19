@@ -30,8 +30,8 @@ processing real payments or cardholder data.
 The system under test is a small Python payment service that will later include
 a minimal English/Japanese checkout. The service uses integer minor units, an
 explicit payment state machine, an immutable ledger, idempotency claims with
-immutable response snapshots, optimistic concurrency control, and a transactional
-webhook outbox. Reconciliation tooling remains a planned milestone.
+immutable response snapshots, optimistic concurrency control, a transactional
+webhook outbox, and multi-source financial reconciliation.
 
 Planned test tooling:
 
@@ -79,8 +79,13 @@ Every accepted payment version now creates one full-snapshot webhook event in
 the financial transaction. The producer signs deliveries with HMAC-SHA256 and
 records deterministic retry attempts. A simulated merchant consumer verifies
 the raw body, stores processed event IDs, applies newer versions, and ignores
-safe duplicates or stale events. Settlement and reconciliation remain the next
-Milestone 5 slice.
+safe duplicates or stale events.
+
+Synthetic settlement batches now carry an immutable cutoff and ordered source
+rows. Read-only reconciliation compares settlement classification, payment and
+ledger totals, and the latest webhook consumer state. Reports keep JPY and USD
+totals separate and expose expected and observed values without including test
+tokens or signing secrets.
 
 ## Quick start
 
@@ -144,6 +149,7 @@ See:
 - [Payment lifecycle](docs/payment-lifecycle.md)
 - [Idempotency and failure recovery](docs/payment-reliability.md)
 - [Webhook delivery and consumption](docs/webhook-delivery.md)
+- [Settlement and reconciliation](docs/reconciliation.md)
 - [Risk-based test plan](docs/test-plan.md)
 - [Quality evidence and milestone reports](docs/quality/README.md)
 - [Defect reports](docs/defects/)

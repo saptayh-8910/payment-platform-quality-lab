@@ -189,3 +189,39 @@ class MerchantPaymentProjectionRecord(Base):
     aggregate_version: Mapped[int] = mapped_column(Integer)
     last_event_id: Mapped[str] = mapped_column(String(40))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class SettlementBatchRecord(Base):
+    """One imported synthetic settlement file and its financial cutoff."""
+
+    __tablename__ = "settlement_batches"
+
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    cutoff: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class SettlementRecord(Base):
+    """External settlement row retained independently from payment state."""
+
+    __tablename__ = "settlement_records"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_settlement_amount_positive"),
+        CheckConstraint("line_number >= 1", name="ck_settlement_line_positive"),
+        UniqueConstraint(
+            "batch_id",
+            "line_number",
+            name="uq_settlement_batch_line",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    batch_id: Mapped[str] = mapped_column(
+        ForeignKey("settlement_batches.id", ondelete="RESTRICT"),
+        index=True,
+    )
+    payment_id: Mapped[str] = mapped_column(String(40), index=True)
+    line_number: Mapped[int] = mapped_column(Integer)
+    amount: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(3))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

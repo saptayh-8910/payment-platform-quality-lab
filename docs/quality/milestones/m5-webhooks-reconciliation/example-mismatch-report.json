@@ -1,0 +1,45 @@
+{
+  "settlement_batch_id": "setb_example_synthetic",
+  "cutoff": "2026-08-19T05:00:00Z",
+  "summary": {
+    "status": "mismatched",
+    "payment_count": 1,
+    "currency_totals": [
+      {
+        "currency": "JPY",
+        "expected_settlement_total": 5000,
+        "observed_settlement_total": 4500,
+        "net_discrepancy": -500
+      }
+    ],
+    "matched_count": 0,
+    "missing_count": 0,
+    "duplicated_count": 0,
+    "amount_mismatched_count": 1,
+    "ledger_mismatch_count": 0,
+    "projection_mismatch_count": 0
+  },
+  "items": [
+    {
+      "payment_id": "pay_example_synthetic",
+      "merchant_reference": "order-example-001",
+      "currency": "JPY",
+      "expected_settlement_amount": 5000,
+      "settlement_classification": "amount_mismatched",
+      "settlement_record_count": 1,
+      "observed_settlement_amounts": [4500],
+      "observed_settlement_currencies": ["JPY"],
+      "ledger_status": "matched",
+      "payment_authorized_amount": 5000,
+      "ledger_authorized_amount": 5000,
+      "payment_captured_amount": 5000,
+      "ledger_captured_amount": 5000,
+      "payment_refunded_amount": 0,
+      "ledger_refunded_amount": 0,
+      "projection_status": "matched",
+      "expected_projection_version": 2,
+      "observed_projection_version": 2,
+      "latest_event_processed": true
+    }
+  ]
+}

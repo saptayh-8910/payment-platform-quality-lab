@@ -7,8 +7,8 @@ platform. It is intentionally provider-neutral and contains no real payment or
 cardholder data.
 
 Authorization, capture, cancellation, refund, concurrency hardening,
-deterministic failure recovery, and webhook delivery are implemented.
-Reconciliation remains the next payment-platform milestone.
+deterministic failure recovery, webhook delivery, and reconciliation are
+implemented.
 
 ## 2. Domain model
 
@@ -124,6 +124,7 @@ running in a test or demonstration mode.
 - Reconciliation classifies records as matched, missing, duplicated, or
   amount-mismatched.
 - A clean run balances exactly in integer minor units.
+- Summary totals and discrepancies must remain separate for each currency.
 - A mismatch report identifies the payment, source, expected value, and observed
   value without exposing sensitive data.
 
@@ -163,6 +164,9 @@ The webhook delivery slice resolved these decisions:
 - The consumer inbox and merchant projection commit in one transaction.
 - Settlement uses immutable ledger entries with `created_at <= cutoff`.
 - Only payments with a positive net captured balance require a settlement row.
+- Settlement source lines remain ordered so duplicate evidence is repeatable.
+- Reconciliation is read-only and never creates a financial effect.
+- JPY and USD totals are grouped separately; no cross-currency total is valid.
 
 These are documented as testability concerns rather than silently embedded in
 the implementation.

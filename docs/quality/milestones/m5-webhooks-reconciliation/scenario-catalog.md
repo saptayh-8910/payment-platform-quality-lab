@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Milestone | 5: Webhook delivery, consumption, and reconciliation |
-| Status | In progress: webhook slice implemented, reconciliation planned |
+| Status | Implementation complete; closing report and CI evidence pending |
 | Owner | Sapta Y Husain |
 | Planned delivery | Webhook implementation PR, then reconciliation PR |
 | Requirements | Webhooks, failure injection, and reconciliation in `docs/payment-requirements.md` |
@@ -21,10 +21,10 @@ Reconciliation compares independent financial records. It should show whether
 the payment, ledger, webhook projection, and settlement data agree. A clean run
 must balance exactly in integer minor units.
 
-This catalog records the complete Milestone 5 coverage. Webhook scenarios now
-have implementation evidence, but the milestone remains open until
-reconciliation is implemented and the closing report records final execution
-evidence.
+This catalog records the complete Milestone 5 coverage. Webhook and
+reconciliation scenarios now have automated implementation evidence. The
+milestone remains open until the closing report records the final pull request
+and CI results.
 
 ## Business risks
 
@@ -97,6 +97,9 @@ projection. It should not modify the source payment or its financial ledger.
 Settlement should use immutable ledger entries with `created_at <= cutoff`.
 Expected settlement is captured funds minus refunds at that cutoff. A payment
 with an expected balance of zero does not require a settlement row.
+
+Each imported batch retains source line order. Summary totals remain separate
+for every currency, and report generation is read-only.
 
 ## Scope
 
@@ -215,19 +218,21 @@ but the merchant must not repeat fulfilment or accounting work.
 - Settlement matches captured funds.
 - Reconciliation reports `matched` with zero discrepancy.
 
-## Planned evidence
+## Implementation evidence
 
-- Unit tests for signing, ordering decisions, cutoff rules, and classification.
-- API tests for signature errors, validation errors, and report contracts.
-- SQLite integration tests for outbox transactions, retry attempts, consumer
-  inbox transactions, and reconciliation.
-- One end-to-end acknowledgement-loss journey.
-- JUnit and branch-aware coverage reports in GitHub Actions.
-- A sanitized example mismatch report for human review.
-- A closing quality report containing commit, PR, CI, defects, limitations, and
+- Unit tests cover signing, payload validation, cutoff rules, classifications,
+  and integer currency behavior.
+- API tests cover signature errors, settlement validation, report contracts,
+  and sanitized mismatch evidence.
+- SQLite integration tests cover outbox transactions, retry attempts, consumer
+  state, cutoff boundaries, all settlement classifications, and read-only
+  repeatability.
+- The acknowledgement-loss journey proves redelivery after consumer commit.
+- JUnit and branch-aware coverage reports run in GitHub Actions.
+- The closing quality report will add the final commit, PR, CI, limitations, and
   release recommendation.
 
-## Current webhook implementation evidence
+## Current automated evidence
 
 - `tests/unit/test_webhook_signatures.py` covers signature and payload rules.
 - `tests/integration/test_webhook_delivery.py` covers the transactional outbox,
@@ -238,8 +243,16 @@ but the merchant must not repeat fulfilment or accounting work.
 - [DEF-003](../../../defects/DEF-003-webhook-lease-datetime-comparison.md)
   records the genuine delivery-lease timestamp failure, its cause, resolution,
   and regression evidence.
-- Reconciliation scenarios `R01` to `R14` remain planned and are not presented
-  as passed evidence.
+- `tests/unit/test_reconciliation_rules.py` covers cutoff, classification, and
+  integer minor-unit rules.
+- `tests/integration/test_reconciliation.py` covers scenarios `R01` to `R13`
+  across settlement, ledger, and webhook consumer sources.
+- `tests/api/test_reconciliation.py` covers the public report, validation, and
+  sanitized evidence required by `R14`.
+- `example-mismatch-report.json` provides a human-readable sanitized artifact
+  with expected, observed, and source-specific evidence.
+- [DEF-004](../../../defects/DEF-004-mixed-currency-reconciliation-total.md)
+  records the mixed-currency summary defect and its regression coverage.
 
 ## Entry criteria
 

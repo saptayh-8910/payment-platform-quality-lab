@@ -11,12 +11,17 @@ from payment_quality_lab.api.schemas import (
     LedgerEntryResponse,
     MerchantProjectionResponse,
     PaymentResponse,
+    ReconciliationReportResponse,
+    ReconciliationRequest,
     RefundPaymentRequest,
+    SettlementBatchCreateRequest,
+    SettlementBatchResponse,
     WebhookConsumerResponse,
     WebhookDeliveryAttemptResponse,
     WebhookDeliveryResponse,
     WebhookEventResponse,
 )
+from payment_quality_lab.persistence.models import SettlementBatchRecord
 from payment_quality_lab.services.payments import (
     AuthorizationCommand,
     FailureInjectionDisabledError,
@@ -28,6 +33,12 @@ from payment_quality_lab.services.payments import (
     get_ledger_entries,
     get_payment,
     refund_payment,
+)
+from payment_quality_lab.services.reconciliation import (
+    SettlementInput,
+    create_settlement_batch,
+    get_settlement_records,
+    reconcile_settlement_batch,
 )
 from payment_quality_lab.services.webhooks import (
     ConsumerFault,
@@ -350,4 +361,67 @@ def retrieve_merchant_projection(
     """Retrieve the merchant view built only from accepted webhooks."""
     return MerchantProjectionResponse.from_record(
         require_merchant_projection(session, payment_id)
+    )
+
+
+@router.post(
+    "/settlement-batches",
+    response_model=SettlementBatchResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["reconciliation"],
+)
+def import_settlement_batch(
+    payload: SettlementBatchCreateRequest,
+    session: SessionDependency,
+) -> SettlementBatchResponse:
+    """Import synthetic external rows without changing payment state."""
+    batch = create_settlement_batch(
+        session,
+        cutoff=payload.cutoff,
+        entries=[
+            SettlementInput(
+                payment_id=entry.payment_id,
+                amount=entry.amount,
+                currency=entry.currency,
+            )
+            for entry in payload.entries
+        ],
+    )
+    return SettlementBatchResponse.from_records(
+        batch,
+        get_settlement_records(session, batch.id),
+    )
+
+
+@router.get(
+    "/settlement-batches/{batch_id}",
+    response_model=SettlementBatchResponse,
+    tags=["reconciliation"],
+)
+def retrieve_settlement_batch(
+    batch_id: str,
+    session: SessionDependency,
+) -> SettlementBatchResponse:
+    """Retrieve an imported settlement batch for investigation."""
+    records = get_settlement_records(session, batch_id)
+    batch = session.get(SettlementBatchRecord, batch_id)
+    assert batch is not None
+    return SettlementBatchResponse.from_records(batch, records)
+
+
+@router.post(
+    "/reconciliation-reports",
+    response_model=ReconciliationReportResponse,
+    tags=["reconciliation"],
+)
+def create_reconciliation_report(
+    payload: ReconciliationRequest,
+    session: SessionDependency,
+) -> ReconciliationReportResponse:
+    """Compare payment, ledger, webhook, and settlement sources read-only."""
+    return ReconciliationReportResponse.from_result(
+        reconcile_settlement_batch(
+            session,
+            batch_id=payload.settlement_batch_id,
+        )
     )

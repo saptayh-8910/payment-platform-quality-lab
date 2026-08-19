@@ -26,6 +26,11 @@ from payment_quality_lab.services.payments import (
     PaymentNotFoundError,
     SimulatedPaymentTimeoutError,
 )
+from payment_quality_lab.services.reconciliation import (
+    SettlementBatchNotFoundError,
+    SettlementPaymentNotFoundError,
+    SettlementPaymentOutsideCutoffError,
+)
 from payment_quality_lab.services.webhooks import (
     ConcurrentWebhookConsumerError,
     InvalidWebhookPayloadError,
@@ -57,7 +62,7 @@ def create_app(
 
     app = FastAPI(
         title="Payment Platform Quality Lab",
-        version="0.4.0",
+        version="0.5.0",
         description="Privacy-safe payment lifecycle simulator",
     )
     app.state.engine = engine
@@ -238,6 +243,44 @@ def create_app(
             content={
                 "code": "simulated_consumer_failure",
                 "message": "Consumer transaction failed before commit",
+            },
+        )
+
+    @app.exception_handler(SettlementBatchNotFoundError)
+    async def settlement_batch_not_found(
+        _request: Request, error: SettlementBatchNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={
+                "code": "settlement_batch_not_found",
+                "message": f"Settlement batch {error.args[0]} was not found",
+            },
+        )
+
+    @app.exception_handler(SettlementPaymentNotFoundError)
+    async def settlement_payment_not_found(
+        _request: Request, error: SettlementPaymentNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={
+                "code": "settlement_payment_not_found",
+                "message": f"Settlement payment {error.args[0]} was not found",
+            },
+        )
+
+    @app.exception_handler(SettlementPaymentOutsideCutoffError)
+    async def settlement_payment_outside_cutoff(
+        _request: Request, error: SettlementPaymentOutsideCutoffError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={
+                "code": "settlement_payment_outside_cutoff",
+                "message": (
+                    f"Settlement payment {error.args[0]} was created after the cutoff"
+                ),
             },
         )
 
