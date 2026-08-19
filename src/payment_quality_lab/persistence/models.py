@@ -3,7 +3,16 @@
 from datetime import datetime
 from typing import ClassVar
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from payment_quality_lab.persistence.database import Base
@@ -85,3 +94,98 @@ class IdempotencyRecord(Base):
     )
     response_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class WebhookEventRecord(Base):
+    """Transactional outbox event for one accepted payment version."""
+
+    __tablename__ = "webhook_events"
+    __table_args__ = (
+        CheckConstraint("aggregate_version >= 1", name="ck_webhook_version_positive"),
+        CheckConstraint("attempt_count >= 0", name="ck_webhook_attempt_count"),
+        UniqueConstraint(
+            "payment_id",
+            "aggregate_version",
+            name="uq_webhook_payment_version",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    payment_id: Mapped[str] = mapped_column(
+        ForeignKey("payments.id", ondelete="RESTRICT"),
+        index=True,
+    )
+    event_type: Mapped[str] = mapped_column(String(64), index=True)
+    aggregate_version: Mapped[int] = mapped_column(Integer)
+    payload: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(24), index=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    lease_token: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    delivered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class WebhookDeliveryAttemptRecord(Base):
+    """One observable attempt to deliver an outbox event."""
+
+    __tablename__ = "webhook_delivery_attempts"
+    __table_args__ = (
+        CheckConstraint("attempt_number >= 1", name="ck_delivery_attempt_positive"),
+        UniqueConstraint(
+            "event_id",
+            "attempt_number",
+            name="uq_delivery_event_attempt",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    event_id: Mapped[str] = mapped_column(
+        ForeignKey("webhook_events.id", ondelete="RESTRICT"),
+        index=True,
+    )
+    attempt_number: Mapped[int] = mapped_column(Integer)
+    outcome: Mapped[str] = mapped_column(String(32))
+    response_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    attempted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ProcessedWebhookRecord(Base):
+    """Consumer inbox record that prevents repeated business effects."""
+
+    __tablename__ = "processed_webhooks"
+
+    event_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    payment_id: Mapped[str] = mapped_column(String(40), index=True)
+    event_type: Mapped[str] = mapped_column(String(64))
+    aggregate_version: Mapped[int] = mapped_column(Integer)
+    payload_hash: Mapped[str] = mapped_column(String(64))
+    disposition: Mapped[str] = mapped_column(String(24))
+    version_gap: Mapped[bool] = mapped_column(Boolean, default=False)
+    processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class MerchantPaymentProjectionRecord(Base):
+    """Merchant-facing payment view updated only by accepted webhooks."""
+
+    __tablename__ = "merchant_payment_projections"
+
+    payment_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    merchant_reference: Mapped[str] = mapped_column(String(64), index=True)
+    amount: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(3))
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    authorized_amount: Mapped[int] = mapped_column(Integer)
+    captured_amount: Mapped[int] = mapped_column(Integer)
+    refunded_amount: Mapped[int] = mapped_column(Integer)
+    aggregate_version: Mapped[int] = mapped_column(Integer)
+    last_event_id: Mapped[str] = mapped_column(String(40))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

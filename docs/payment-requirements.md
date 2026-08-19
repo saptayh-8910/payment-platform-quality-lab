@@ -6,9 +6,9 @@ This document defines the initial behavioral contract for a simulated payment
 platform. It is intentionally provider-neutral and contains no real payment or
 cardholder data.
 
-Authorization, capture, cancellation, refund, concurrency hardening, and
-deterministic failure recovery are implemented. Later milestones add webhooks
-and reconciliation.
+Authorization, capture, cancellation, refund, concurrency hardening,
+deterministic failure recovery, and webhook delivery are implemented.
+Reconciliation remains the next payment-platform milestone.
 
 ## 2. Domain model
 
@@ -153,11 +153,16 @@ Milestone 4 resolved the following decisions:
 - Idempotency records remain available indefinitely within the simulator.
 - Declined authorizations replay the original decline response.
 
-The following decisions remain for later milestones:
+The webhook delivery slice resolved these decisions:
 
-- Whether webhook ordering is represented by aggregate version, occurrence time,
-  or both.
-- How simulated settlement batches determine their cutoff and included states.
+- Aggregate version is the main ordering value. Event time remains diagnostic.
+- Events carry a full payment snapshot so a newer event can be applied when an
+  earlier version is delayed.
+- HMAC-SHA256 signatures cover the timestamp and exact raw body.
+- Delivery retries every non-success result up to three deterministic attempts.
+- The consumer inbox and merchant projection commit in one transaction.
+- Settlement uses immutable ledger entries with `created_at <= cutoff`.
+- Only payments with a positive net captured balance require a settlement row.
 
 These are documented as testability concerns rather than silently embedded in
 the implementation.

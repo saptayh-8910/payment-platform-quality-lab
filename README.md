@@ -30,8 +30,8 @@ processing real payments or cardholder data.
 The system under test is a small Python payment service that will later include
 a minimal English/Japanese checkout. The service uses integer minor units, an
 explicit payment state machine, an immutable ledger, idempotency claims with
-immutable response snapshots, and optimistic concurrency control. Signed
-webhook events and reconciliation tooling are planned milestones.
+immutable response snapshots, optimistic concurrency control, and a transactional
+webhook outbox. Reconciliation tooling remains a planned milestone.
 
 Planned test tooling:
 
@@ -74,6 +74,13 @@ Optimistic version checks reject stale competing transitions, while deterministi
 pre-commit and post-commit timeouts demonstrate rollback and safe retry behavior.
 Failure controls are disabled unless an application instance explicitly enables
 test/demo mode.
+
+Every accepted payment version now creates one full-snapshot webhook event in
+the financial transaction. The producer signs deliveries with HMAC-SHA256 and
+records deterministic retry attempts. A simulated merchant consumer verifies
+the raw body, stores processed event IDs, applies newer versions, and ignores
+safe duplicates or stale events. Settlement and reconciliation remain the next
+Milestone 5 slice.
 
 ## Quick start
 
@@ -136,6 +143,7 @@ See:
 - [Payment requirements](docs/payment-requirements.md)
 - [Payment lifecycle](docs/payment-lifecycle.md)
 - [Idempotency and failure recovery](docs/payment-reliability.md)
+- [Webhook delivery and consumption](docs/webhook-delivery.md)
 - [Risk-based test plan](docs/test-plan.md)
 - [Quality evidence and milestone reports](docs/quality/README.md)
 - [Defect reports](docs/defects/)

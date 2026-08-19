@@ -1,6 +1,8 @@
 """Public API request and response schemas."""
 
+import json
 from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -9,8 +11,15 @@ from payment_quality_lab.domain.payment import (
     Currency,
     PaymentStatus,
 )
-from payment_quality_lab.persistence.models import LedgerEntryRecord, PaymentRecord
+from payment_quality_lab.persistence.models import (
+    LedgerEntryRecord,
+    MerchantPaymentProjectionRecord,
+    PaymentRecord,
+    WebhookDeliveryAttemptRecord,
+    WebhookEventRecord,
+)
 from payment_quality_lab.services.payments import PaymentSnapshot
+from payment_quality_lab.services.webhooks import ConsumerOutcome, DeliveryResult
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -100,3 +109,133 @@ class ErrorResponse(BaseModel):
 
     code: str
     message: str
+
+
+class WebhookEventResponse(BaseModel):
+    """Public producer view of one transactional outbox event."""
+
+    id: str
+    payment_id: str
+    type: str
+    aggregate_version: int
+    payload: dict[str, Any]
+    status: str
+    attempt_count: int
+    next_attempt_at: datetime
+    created_at: datetime
+    delivered_at: datetime | None
+
+    @classmethod
+    def from_record(cls, event: WebhookEventRecord) -> "WebhookEventResponse":
+        return cls(
+            id=event.id,
+            payment_id=event.payment_id,
+            type=event.event_type,
+            aggregate_version=event.aggregate_version,
+            payload=json.loads(event.payload),
+            status=event.status,
+            attempt_count=event.attempt_count,
+            next_attempt_at=_as_utc(event.next_attempt_at),
+            created_at=_as_utc(event.created_at),
+            delivered_at=(
+                _as_utc(event.delivered_at) if event.delivered_at is not None else None
+            ),
+        )
+
+
+class WebhookDeliveryAttemptResponse(BaseModel):
+    """Public delivery history for one webhook attempt."""
+
+    attempt_number: int
+    outcome: str
+    response_status: int | None
+    error_code: str | None
+    attempted_at: datetime
+
+    @classmethod
+    def from_record(
+        cls,
+        attempt: WebhookDeliveryAttemptRecord,
+    ) -> "WebhookDeliveryAttemptResponse":
+        return cls(
+            attempt_number=attempt.attempt_number,
+            outcome=attempt.outcome,
+            response_status=attempt.response_status,
+            error_code=attempt.error_code,
+            attempted_at=_as_utc(attempt.attempted_at),
+        )
+
+
+class WebhookConsumerResponse(BaseModel):
+    """Result returned by the simulated merchant consumer."""
+
+    event_id: str
+    disposition: str
+    duplicate: bool
+    version_gap: bool
+
+    @classmethod
+    def from_outcome(cls, outcome: ConsumerOutcome) -> "WebhookConsumerResponse":
+        return cls(
+            event_id=outcome.event_id,
+            disposition=outcome.disposition.value,
+            duplicate=outcome.duplicate,
+            version_gap=outcome.version_gap,
+        )
+
+
+class WebhookDeliveryResponse(BaseModel):
+    """Result of one producer delivery attempt."""
+
+    event_id: str
+    attempt_number: int
+    outcome: str
+    status: str
+    response_status: int | None
+    next_attempt_at: datetime | None
+
+    @classmethod
+    def from_result(cls, result: DeliveryResult) -> "WebhookDeliveryResponse":
+        return cls(
+            event_id=result.event_id,
+            attempt_number=result.attempt_number,
+            outcome=result.outcome,
+            status=result.status.value,
+            response_status=result.response_status,
+            next_attempt_at=result.next_attempt_at,
+        )
+
+
+class MerchantProjectionResponse(BaseModel):
+    """Merchant payment view produced only from accepted webhooks."""
+
+    payment_id: str
+    merchant_reference: str
+    amount: int
+    currency: Currency
+    status: PaymentStatus
+    authorized_amount: int
+    captured_amount: int
+    refunded_amount: int
+    aggregate_version: int
+    last_event_id: str
+    updated_at: datetime
+
+    @classmethod
+    def from_record(
+        cls,
+        projection: MerchantPaymentProjectionRecord,
+    ) -> "MerchantProjectionResponse":
+        return cls(
+            payment_id=projection.payment_id,
+            merchant_reference=projection.merchant_reference,
+            amount=projection.amount,
+            currency=Currency(projection.currency),
+            status=PaymentStatus(projection.status),
+            authorized_amount=projection.authorized_amount,
+            captured_amount=projection.captured_amount,
+            refunded_amount=projection.refunded_amount,
+            aggregate_version=projection.aggregate_version,
+            last_event_id=projection.last_event_id,
+            updated_at=_as_utc(projection.updated_at),
+        )

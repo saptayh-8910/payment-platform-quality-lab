@@ -5,9 +5,9 @@
 | Field | Value |
 |---|---|
 | Milestone | 5: Webhook delivery, consumption, and reconciliation |
-| Status | Draft for review |
+| Status | In progress: webhook slice implemented, reconciliation planned |
 | Owner | Sapta Y Husain |
-| Planned delivery | Two implementation PRs: webhooks, then reconciliation |
+| Planned delivery | Webhook implementation PR, then reconciliation PR |
 | Requirements | Webhooks, failure injection, and reconciliation in `docs/payment-requirements.md` |
 | Previous evidence | [Milestone 4 quality report](../m4-idempotency-recovery/quality-report.md) |
 
@@ -21,9 +21,10 @@ Reconciliation compares independent financial records. It should show whether
 the payment, ledger, webhook projection, and settlement data agree. A clean run
 must balance exactly in integer minor units.
 
-This catalog records planned coverage. No scenario in this document is marked as
-passed until implementation is complete and a closing report contains the
-execution evidence.
+This catalog records the complete Milestone 5 coverage. Webhook scenarios now
+have implementation evidence, but the milestone remains open until
+reconciliation is implemented and the closing report records final execution
+evidence.
 
 ## Business risks
 
@@ -37,9 +38,10 @@ execution evidence.
 | Payment and settlement disagree | Accounting loss and operational investigation | Critical |
 | Report exposes a secret | Security and privacy incident | High |
 
-## Proposed design decisions
+## Approved webhook design decisions
 
-These decisions are recommendations. They must be reviewed before implementation.
+The webhook decisions below were reviewed through the catalog pull request and
+are implemented in the webhook slice.
 
 ### Transactional outbox
 
@@ -87,6 +89,8 @@ not sleep for real time.
 
 The consumer should store processed event IDs and a merchant-facing payment
 projection. It should not modify the source payment or its financial ledger.
+
+## Approved reconciliation decision
 
 ### Settlement cutoff
 
@@ -223,6 +227,20 @@ but the merchant must not repeat fulfilment or accounting work.
 - A closing quality report containing commit, PR, CI, defects, limitations, and
   release recommendation.
 
+## Current webhook implementation evidence
+
+- `tests/unit/test_webhook_signatures.py` covers signature and payload rules.
+- `tests/integration/test_webhook_delivery.py` covers the transactional outbox,
+  retries, consumer transactions, ordering, concurrency, and acknowledgement
+  loss.
+- `tests/api/test_webhooks.py` covers public event, delivery, consumer,
+  projection, failure-control, and error contracts.
+- [DEF-003](../../../defects/DEF-003-webhook-lease-datetime-comparison.md)
+  records the genuine delivery-lease timestamp failure, its cause, resolution,
+  and regression evidence.
+- Reconciliation scenarios `R01` to `R14` remain planned and are not presented
+  as passed evidence.
+
 ## Entry criteria
 
 - Proposed design decisions are reviewed.
@@ -245,16 +263,16 @@ but the merchant must not repeat fulfilment or accounting work.
 - Logs and reports contain no token or signing secret.
 - The closing report records actual evidence and limitations.
 
-## Review questions
+## Decision record
 
-1. Should aggregate version be the main ordering value, with time used only for
-   investigation?
-2. Is a five-minute signature timestamp tolerance suitable for the simulator?
-3. Should delivery use three attempts at immediate, plus one second, plus five
-   seconds?
-4. Should every non-success response be retried, or should some client errors
-   stop immediately?
-5. Should a newer full snapshot be applied when an earlier version is missing?
-6. Should zero-balance payments have no settlement row?
-7. Should ledger time at or before the cutoff be included?
-8. Is splitting webhook work and reconciliation into PR 4 and PR 5 acceptable?
+The catalog review approved these answers:
+
+1. Aggregate version is the main ordering value. Time supports investigation.
+2. Signature timestamps use a five-minute tolerance.
+3. Delivery uses three attempts: immediate, plus one second, plus five seconds.
+4. Every non-success response is retried up to the three-attempt limit.
+5. A newer full snapshot can be applied when an earlier version is missing.
+6. A zero-balance payment does not require a settlement row.
+7. Reconciliation includes ledger entries with `created_at <= cutoff`.
+8. Webhook delivery and reconciliation are delivered in separate implementation
+   pull requests.
