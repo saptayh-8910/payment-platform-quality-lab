@@ -4,7 +4,7 @@
 
 | Field | Value |
 |---|---|
-| Milestone | 6: English and Japanese checkout with Playwright |
+| Milestone | 6: English and Japanese checkout acceptance testing |
 | Status | Draft for review; scenarios are planned, not passed evidence |
 | Owner | Sapta Y Husain |
 | Planned delivery | Catalog PR, then checkout implementation PR |
@@ -34,10 +34,11 @@ webhook, and reconciliation tests. A real customer does not use those technical
 interfaces directly. The project now needs a browser layer that shows whether
 the same reliability rules remain understandable and usable.
 
-KOMOJU lists automated testing, manual and exploratory testing, Playwright,
-multilingual applications, mobile applications, backend systems, and debugging
-as relevant skills. A focused multilingual checkout can demonstrate these areas
-without turning the project into a large ecommerce application.
+A focused checkout is the smallest useful way to test this boundary. It connects
+customer-visible messages and browser actions to the payment safety rules that
+already exist. It also adds multilingual, keyboard, responsive-layout, and
+failure-recovery risks without turning the project into a large ecommerce
+application.
 
 ## Business risks
 
@@ -68,7 +69,10 @@ without turning the project into a large ecommerce application.
 - Result recovery after page refresh.
 - Keyboard operation and basic semantic accessibility checks.
 - Desktop and 390 by 844 mobile viewport coverage.
-- Playwright browser automation and a small manual language/layout review.
+- TypeScript Playwright automation controlled by Cucumber-JS.
+- A small set of executable Gherkin acceptance scenarios.
+- Browser money-parsing unit tests and a manual language/layout review.
+- HTML and JUnit results, with screenshots and traces for failed scenarios.
 
 ### Outside scope
 
@@ -78,6 +82,9 @@ without turning the project into a large ecommerce application.
 - Professional translation certification.
 - Full WCAG certification or every assistive technology.
 - Visual perfection across every browser and device.
+- React or another frontend application framework.
+- Selenium, Appium, or a second browser automation stack.
+- Gherkin versions of every unit, API, or integration test.
 - Capture, refund, settlement, and reconciliation controls in the customer UI.
 - Third-party scripts, analytics, cookies, or external network services.
 
@@ -183,17 +190,85 @@ overlap, clipped result, or hidden primary action.
 
 ## Recommended implementation approach
 
-Use a small FastAPI-served page with semantic HTML, focused CSS, and lightweight
-JavaScript. Do not add React or another frontend framework for this milestone.
+### Decision principles
 
-This recommendation keeps attention on payment behavior and QA evidence. It
-also keeps the page fast, makes the accessibility structure easy to inspect, and
-avoids a large build system that does not improve the planned scenarios.
+The technology choices follow four rules:
 
-Use Python Playwright so the browser suite shares the existing pytest fixtures,
-database setup, reports, and CI language. Chromium should be the required pull
-request browser. Firefox and WebKit may run in a manually triggered or scheduled
-matrix if their runtime remains reasonable.
+1. Use the lowest test level that can prove the risk reliably.
+2. Make the most important customer journeys readable outside the test code.
+3. Produce enough failure evidence to investigate CI without rerunning blindly.
+4. Add only tools with a clear responsibility and avoid duplicate frameworks.
+
+### Product implementation decisions
+
+| Decision | Why it fits this milestone | Scope control |
+|---|---|---|
+| FastAPI serves the page | The checkout uses the same application and API boundary, so local and CI startup remain simple | No separate frontend service in Milestone 6 |
+| Semantic HTML and focused CSS | Native controls support labels, keyboard behavior, and predictable mobile layout with less custom code | No component or design-system project |
+| Lightweight browser JavaScript | The page needs localization, validation, API calls, and result recovery, but not a large application framework | No React, client router, or global state library |
+| Exact string-based money conversion | JPY and USD values must become integer minor units without binary floating-point rounding | Parsing stays in a small pure module with Node unit tests |
+| `sessionStorage` for the active key and last payment ID | It supports refresh and safe retry within one browser tab without long-term storage | No token, secret, form history, or customer identity is stored |
+
+### Automation technology decisions
+
+| Decision | Reason |
+|---|---|
+| TypeScript for browser automation | Browser tests contain asynchronous actions, structured test data, page objects, and API responses. Static types make incorrect fields and helper contracts easier to find before a browser run. TypeScript also uses the same Node ecosystem as the browser tools, so no language bridge is required. |
+| Playwright for browser control | Playwright provides isolated browser contexts, reliable waiting, keyboard and viewport controls, network interception, screenshots, and execution traces. These capabilities directly support repeated-submit, timeout, localization, mobile, and CI investigation scenarios. |
+| Cucumber-JS as the scenario runner | Cucumber-JS executes the Gherkin specification and calls TypeScript step definitions. One runner owns scenario lifecycle, filtering, and reporting, which avoids competing test runners. Playwright is used as a browser library inside the Cucumber world and hooks. |
+| Gherkin for selected business journeys | Given/When/Then examples make the initial situation, customer action, and visible result understandable to technical and non-technical readers. Only journeys that express a business rule use Gherkin. Detailed input combinations stay in faster unit or API tests. |
+| English feature files with Japanese test data | One working language keeps shared business rules easy to review. Japanese values and exact Japanese results remain assertions in the scenarios; translating every Gherkin keyword would duplicate the same rule. |
+| A small Page Object Model | Locators and common browser actions belong in one checkout page object. Step definitions remain readable, while expected business results stay in the steps instead of being hidden behind a large abstraction. |
+| Chromium in every pull request | One required browser gives fast and repeatable merge feedback for the supported web experience. Firefox and WebKit may run manually or on a schedule if they add useful findings at an acceptable runtime. |
+| Cucumber HTML, JSON, and JUnit output | HTML gives people a readable scenario report, JSON supports later analysis, and JUnit lets CI show machine-readable results. These are generated evidence, not replacements for the closing quality report. |
+| Failure screenshots and Playwright traces | A screenshot shows the visible failure, while a trace provides actions, DOM snapshots, and network evidence. They are retained only for failed scenarios to keep normal CI artifacts small. |
+
+The browser acceptance suite will use `@cucumber/cucumber` as its only runner.
+It will call the Playwright library from typed world, hook, step, and page-object
+modules. It will not add Playwright Test or a Cucumber adapter because another
+runner or adapter would add configuration without improving the planned
+evidence.
+
+The existing pytest suite remains responsible for Python domain, API, database,
+webhook, concurrency, and reconciliation behavior. Browser-side money parsing
+will use Node's small built-in unit-test capability. This keeps detailed rules
+fast and prevents the Gherkin suite from repeating evidence already available at
+a lower level.
+
+### Proposed acceptance scenarios
+
+The 44 catalog entries are a risk model, not a target of 44 browser scenarios.
+The first implementation should contain these eight business-readable examples:
+
+| Acceptance scenario | Main catalog coverage |
+|---|---|
+| English JPY payment is authorized | `LOC-01`, `INP-01`, `PAY-01` |
+| Japanese JPY payment is authorized without corrupting the reference | `LOC-02`, `INP-08`, `PAY-02` |
+| USD display amount is converted and shown exactly | `INP-02`, `PAY-03` |
+| Japanese declined payment is explained clearly | `LOC-05`, `PAY-04` |
+| Invalid input gives localized and keyboard-accessible guidance | `INP-03` to `INP-05`, `A11Y-04` |
+| Repeated submission creates one payment effect | `REL-01`, `REL-02` |
+| Japanese uncertain result is retried safely | `REL-04`, `REL-05`, `PAY-05` |
+| Checkout completes by keyboard at the mobile viewport | `A11Y-03`, `VIEW-01`, `VIEW-02` |
+
+Scenario tags such as `@critical`, `@localization`, `@reliability`, and
+`@mobile` may select meaningful groups. Tags must describe risk or purpose, not
+repeat the folder structure.
+
+### CI and browser scope
+
+The required pull-request browser job will:
+
+1. install the pinned Node dependencies and Chromium;
+2. start the isolated FastAPI test application;
+3. run the browser money unit tests and TypeScript type check;
+4. execute all approved Cucumber scenarios;
+5. publish JUnit and HTML results; and
+6. upload screenshots and Playwright traces when a scenario fails.
+
+The job must not depend on an external payment service. Firefox and WebKit are
+optional scheduled or manual checks, not a condition for completing this
+milestone.
 
 ## Test data
 
@@ -340,7 +415,8 @@ customer guidance is also not enough.
 
 #### Planned evidence
 
-- One Playwright journey through the real browser and HTTP boundary.
+- One Cucumber scenario using Playwright through the real browser and HTTP
+  boundary.
 - API assertions for payment, ledger, and webhook event evidence.
 - Screenshot and trace only on failure to keep normal CI artifacts small.
 - A plain-English closing report that explains the customer and financial
@@ -353,24 +429,32 @@ should use parameterization when one test technique proves the same rule.
 
 Proposed files are:
 
-- `tests/unit/test_checkout_money.py` for exact JPY and USD parsing;
-- `tests/e2e/test_checkout_localization.py` for language and validation;
-- `tests/e2e/test_checkout_payments.py` for approval, decline, and refresh;
-- `tests/e2e/test_checkout_reliability.py` for repeated submit and timeout retry;
-- `tests/e2e/test_checkout_accessibility.py` for semantics, keyboard, and mobile;
-- one reusable Playwright server and isolated-database fixture.
+- `web/checkout/` for semantic HTML, CSS, browser behavior, copy, and the pure
+  money-parsing module;
+- `features/checkout/` for the small set of `.feature` specifications;
+- `features/steps/` for TypeScript step definitions;
+- `features/support/` for the typed Cucumber world, browser lifecycle, failure
+  attachments, and isolated application startup;
+- `features/pages/checkout-page.ts` for shared locators and browser actions;
+- `tests/web/` for fast Node unit tests of browser money parsing;
+- `package.json`, TypeScript configuration, Cucumber configuration, and the
+  browser CI job.
 
 The expected implementation is approximately 20 to 30 focused automated tests,
-with parameterization covering the broader catalog.
+including eight Gherkin acceptance scenarios. Parameterized Node, pytest, and
+browser checks will cover the broader catalog without turning every row into a
+separate end-to-end journey.
 
 ## Entry criteria
 
 - Proposed UI architecture is reviewed.
+- TypeScript Playwright, Cucumber-JS, Gherkin, and test-layer boundaries are
+  reviewed.
 - English and Japanese content policy is agreed.
 - JPY and USD display-to-minor-unit rules are agreed.
 - Active idempotency key lifetime is agreed.
 - Result recovery and uncertain-message behavior are agreed.
-- Browser and mobile CI scope is agreed.
+- Browser reports, failure artifacts, and mobile CI scope are agreed.
 - No real payment or customer data field is required.
 
 ## Exit criteria
@@ -383,6 +467,8 @@ with parameterization covering the broader catalog.
 - Keyboard and mobile critical journeys pass.
 - Normal application instances cannot enable failure injection.
 - Browser artifacts and visible content contain no test token or secret.
+- Cucumber HTML and JUnit reports are produced, and failed scenarios retain a
+  screenshot and Playwright trace.
 - Existing unit, API, integration, webhook, and reconciliation suites still pass.
 - CI passes on the documented Python and browser environments.
 - Genuine defects and limitations are recorded in the closing quality report.
@@ -391,17 +477,25 @@ with parameterization covering the broader catalog.
 
 1. Approve lightweight FastAPI HTML/CSS/JavaScript instead of a frontend
    framework?
-2. Approve customer-facing JPY whole units and USD decimal units with exact
+2. Approve TypeScript Playwright controlled by Cucumber-JS, with no second
+   browser test runner?
+3. Approve eight Gherkin acceptance scenarios while detailed combinations stay
+   in Node, pytest, API, or integration tests?
+4. Approve a small Page Object Model for locators and actions, while assertions
+   remain visible in the step definitions?
+5. Approve customer-facing JPY whole units and USD decimal units with exact
    string conversion to API minor units?
-3. Approve English fallback for a missing or unsupported language value?
-4. Approve preserving entered non-sensitive values when language changes?
-5. Approve storing only the active idempotency key and last payment ID in
+6. Approve English fallback for a missing or unsupported language value?
+7. Approve preserving entered non-sensitive values when language changes?
+8. Approve storing only the active idempotency key and last payment ID in
    browser session storage?
-6. Approve the Japanese post-commit timeout and safe retry as the centerpiece
+9. Approve the Japanese post-commit timeout and safe retry as the centerpiece
    browser scenario?
-7. Approve Chromium as the required pull-request browser, with Firefox and
+10. Approve Chromium as the required pull-request browser, with Firefox and
    WebKit considered for a scheduled or manual matrix?
-8. Approve 390 by 844 as the required mobile viewport while clearly stating
+11. Approve Cucumber HTML/JSON/JUnit reports plus screenshots and traces for
+    failed scenarios?
+12. Approve 390 by 844 as the required mobile viewport while clearly stating
    that this is responsive-web evidence, not native-mobile testing?
-9. Approve functional Japanese copy with manual review, without claiming
+13. Approve functional Japanese copy with manual review, without claiming
    professional translation certification?

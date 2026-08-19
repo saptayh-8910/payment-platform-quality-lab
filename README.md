@@ -37,7 +37,7 @@ Planned test tooling:
 
 - pytest for domain, API, and integration testing
 - FastAPI TestClient for service-level API checks
-- Playwright for English/Japanese browser journeys
+- TypeScript Playwright with Cucumber-JS for selected English/Japanese journeys
 - Hypothesis for financial and state-machine invariants
 - Locust for a small reliability and performance baseline
 - Ruff and branch-aware coverage for fast feedback

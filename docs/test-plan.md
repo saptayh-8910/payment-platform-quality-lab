@@ -17,7 +17,7 @@ boundaries.
 | High | Ambiguous timeout causes an unsafe retry | Duplicate effect or unknown customer outcome | Post-commit timeout E2E scenario |
 | High | Duplicate or out-of-order webhook changes state twice | Incorrect downstream records | Webhook consumer integration tests |
 | High | API, ledger, and settlement disagree | Accounting and operational incident | Reconciliation tests and mismatch report |
-| Medium | Japanese input or localized errors fail | Customer cannot complete checkout | Playwright EN/JA tests and exploratory sessions |
+| Medium | Japanese input or localized errors fail | Customer cannot complete checkout | Cucumber-JS and Playwright EN/JA tests plus exploratory sessions |
 | Medium | Performance degrades under expected concurrency | Slow or failed payment attempts | Locust baseline and threshold report |
 | Medium | Logs expose sensitive configuration | Security and privacy incident | Log assertions and manual review |
 
@@ -45,8 +45,10 @@ reconciliation against real SQLite storage.
 ### End to end
 
 Cover a small number of critical journeys through the English/Japanese checkout
-and API. The centerpiece is an authorization committed before a simulated
-timeout, followed by a safe retry using the same idempotency key.
+and API. Business-readable Gherkin scenarios run through Cucumber-JS, with
+Playwright controlling the browser. The centerpiece is an authorization
+committed before a simulated timeout, followed by a safe retry using the same
+idempotency key.
 
 ### Manual and exploratory
 
@@ -96,7 +98,7 @@ The planned fast pull-request gate includes:
 - Ruff linting and formatting checks;
 - unit, API, and integration tests;
 - branch-aware coverage with an initial 85% threshold after the vertical slice;
-- one critical Playwright smoke journey when the UI exists;
+- the small approved Cucumber-JS suite in Chromium when the UI exists;
 - machine-readable test and coverage reports.
 
 Scheduled or manually triggered workflows will contain longer browser,
