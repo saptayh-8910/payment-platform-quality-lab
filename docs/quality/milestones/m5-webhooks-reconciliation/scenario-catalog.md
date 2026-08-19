@@ -5,11 +5,12 @@
 | Field | Value |
 |---|---|
 | Milestone | 5: Webhook delivery, consumption, and reconciliation |
-| Status | Implementation complete; closing report and CI evidence pending |
+| Status | Complete: closing report contains executed evidence |
 | Owner | Sapta Y Husain |
-| Planned delivery | Webhook implementation PR, then reconciliation PR |
+| Delivery | Webhook PR #5, then reconciliation PR #6 |
 | Requirements | Webhooks, failure injection, and reconciliation in `docs/payment-requirements.md` |
 | Previous evidence | [Milestone 4 quality report](../m4-idempotency-recovery/quality-report.md) |
+| Closing evidence | [Milestone 5 quality report](quality-report.md) |
 
 ## Executive summary
 
@@ -22,9 +23,9 @@ the payment, ledger, webhook projection, and settlement data agree. A clean run
 must balance exactly in integer minor units.
 
 This catalog records the complete Milestone 5 coverage. Webhook and
-reconciliation scenarios now have automated implementation evidence. The
-milestone remains open until the closing report records the final pull request
-and CI results.
+reconciliation scenarios have automated implementation evidence. The closing
+report records the pull requests, CI results, defects, limitations, and release
+recommendation.
 
 ## Business risks
 
