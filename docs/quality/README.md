@@ -32,7 +32,7 @@ scenario is not presented as a passed test.
 | Milestone | Quality focus | Scenario catalog | Closing report | Status |
 |---|---|---|---|---|
 | 4 | Idempotency, concurrency, and failure recovery | [Catalog](milestones/m4-idempotency-recovery/scenario-catalog.md) | [Report](milestones/m4-idempotency-recovery/quality-report.md) | Complete |
-| 5 | Webhooks and reconciliation | [Catalog](milestones/m5-webhooks-reconciliation/scenario-catalog.md) | Created after execution | Draft for review |
+| 5 | Webhooks and reconciliation | [Catalog](milestones/m5-webhooks-reconciliation/scenario-catalog.md) | [Report](milestones/m5-webhooks-reconciliation/quality-report.md) | Complete |
 | 6 | English/Japanese checkout | Created before implementation | Created after execution | Planned |
 | 7 | Exploratory testing and defect evidence | Created before implementation | Created after execution | Planned |
 | 8 | Performance baseline | Created before implementation | Created after execution | Planned |
