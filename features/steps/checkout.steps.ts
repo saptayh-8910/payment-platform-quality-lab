@@ -199,13 +199,19 @@ Then("a Japanese retry action is available", async function (this: CheckoutWorld
 });
 
 Then(
-  "the original payment is shown with one financial effect",
+  "the original payment survives refresh with one financial effect",
   async function (this: CheckoutWorld) {
     const page = checkout(this);
     await page.waitForResult();
-    assert.equal(await page.paymentId(), this.committedPaymentId);
+    const paymentId = await page.paymentId();
+    assert.equal(paymentId, this.committedPaymentId);
     assert.equal(this.observedIdempotencyKeys.length, 2);
     assert.equal(this.observedIdempotencyKeys[0], this.observedIdempotencyKeys[1]);
+
+    await this.requirePage().reload();
+    await page.waitForResult();
+    assert.equal(await page.paymentId(), paymentId);
+    assert.equal(this.paymentRequestCount, 2);
     await assertFinancialEvidence(this, 1);
   },
 );

@@ -59,7 +59,7 @@ Feature: Multilingual test checkout
     Then the result says "結果を確認できません" in Japanese
     And a Japanese retry action is available
     When the customer retries the uncertain payment
-    Then the original payment is shown with one financial effect
+    Then the original payment survives refresh with one financial effect
 
   @critical @mobile @accessibility @localization
   Scenario: Checkout completes by keyboard at the mobile viewport

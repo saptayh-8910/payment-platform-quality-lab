@@ -1,5 +1,7 @@
 """Contract checks for the privacy-safe browser checkout shell."""
 
+import re
+
 from fastapi.testclient import TestClient
 
 
@@ -11,8 +13,15 @@ def test_checkout_serves_semantic_page(client: TestClient) -> None:
     assert '<main class="page-shell">' in response.text
     assert 'id="checkout-form"' in response.text
     assert 'id="live-status"' in response.text
-    assert 'name="card-number"' not in response.text.lower()
-    assert 'name="cvv"' not in response.text.lower()
+    collected_fields = set(
+        re.findall(r'<(?:input|select)[^>]+name="([^"]+)"', response.text)
+    )
+    assert collected_fields == {
+        "merchantReference",
+        "amount",
+        "currency",
+        "outcome",
+    }
 
 
 def test_checkout_serves_browser_assets(client: TestClient) -> None:
