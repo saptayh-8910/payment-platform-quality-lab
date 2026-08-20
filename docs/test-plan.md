@@ -18,7 +18,7 @@ boundaries.
 | High | Duplicate or out-of-order webhook changes state twice | Incorrect downstream records | Webhook consumer integration tests |
 | High | API, ledger, and settlement disagree | Accounting and operational incident | Reconciliation tests and mismatch report |
 | Medium | Japanese input or localized errors fail | Customer cannot complete checkout | Cucumber-JS and Playwright EN/JA tests plus exploratory sessions |
-| Medium | Performance degrades under expected concurrency | Slow or failed payment attempts | Locust baseline and threshold report |
+| Medium | Performance degrades under expected concurrency | Slow or failed payment attempts | k6 baseline and threshold report |
 | Medium | Logs expose sensitive configuration | Security and privacy incident | Log assertions and manual review |
 
 ## 3. Test levels
