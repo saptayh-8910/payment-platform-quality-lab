@@ -18,6 +18,8 @@ test-results/
 playwright-report/
 blob-report/
 reports/
+output/
+node_modules/
 
 # Local databases and environment
 *.db

@@ -1,0 +1,23 @@
+{
+  "name": "payment-platform-quality-lab-browser-tests",
+  "version": "0.6.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22 || 24 || >=26"
+  },
+  "scripts": {
+    "prepare:reports": "node scripts/prepare-reports.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "node --test tests/web/*.test.js",
+    "test:acceptance": "npm run prepare:reports && cucumber-js",
+    "test:browser": "npm run test:unit && npm run typecheck && npm run test:acceptance"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "13.2.1",
+    "@types/node": "24.10.0",
+    "playwright": "1.62.1",
+    "tsx": "4.23.12",
+    "typescript": "7.0.2"
+  }
+}

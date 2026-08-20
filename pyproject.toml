@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "payment-platform-quality-lab"
-version = "0.5.0"
+version = "0.6.0"
 description = "A privacy-safe payment simulator and payment QA laboratory"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -30,6 +30,9 @@ payment-quality-lab = "payment_quality_lab.main:run"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+payment_quality_lab = ["web/checkout/*.css", "web/checkout/*.html", "web/checkout/*.js"]
 
 [tool.pytest.ini_options]
 addopts = [

@@ -27,19 +27,19 @@ processing real payments or cardholder data.
 
 ## System design
 
-The system under test is a small Python payment service that will later include
-a minimal English/Japanese checkout. The service uses integer minor units, an
-explicit payment state machine, an immutable ledger, idempotency claims with
-immutable response snapshots, optimistic concurrency control, a transactional
-webhook outbox, and multi-source financial reconciliation.
+The system under test is a small Python payment service with a minimal
+English/Japanese checkout. The service uses integer minor units, an explicit
+payment state machine, an immutable ledger, idempotency claims with immutable
+response snapshots, optimistic concurrency control, a transactional webhook
+outbox, and multi-source financial reconciliation.
 
-Planned test tooling:
+Test tooling:
 
 - pytest for domain, API, and integration testing
 - FastAPI TestClient for service-level API checks
 - TypeScript Playwright with Cucumber-JS for selected English/Japanese journeys
 - Hypothesis for financial and state-machine invariants
-- Locust for a small reliability and performance baseline
+- k6 for the planned reliability and performance baseline
 - Ruff and branch-aware coverage for fast feedback
 - GitHub Actions for pull-request and release quality gates
 
@@ -50,8 +50,8 @@ Planned test tooling:
 3. Payment lifecycle and financial invariants
 4. Idempotency, ledger correctness, concurrency, and failure injection
 5. Webhook delivery, consumption, and reconciliation
-6. English/Japanese checkout with Playwright
-7. Manual testing, exploratory sessions, and defect evidence
+6. English/Japanese checkout with TypeScript Playwright and Cucumber-JS
+7. Service-to-service testing, exploratory sessions, and defect evidence
 8. Performance baseline and portfolio-ready reporting
 
 ## Current status
@@ -87,6 +87,19 @@ ledger totals, and the latest webhook consumer state. Reports keep JPY and USD
 totals separate and expose expected and observed values without including test
 tokens or signing secrets.
 
+The browser checkout now accepts synthetic JPY and USD amounts in English or
+Japanese. It converts the original amount string to integer minor units, blocks
+normal repeated submission, preserves one idempotency key while a result is
+uncertain, and restores a completed result after refresh. The checkout stores
+only the active idempotency key and last payment ID in session storage.
+
+Eight Gherkin acceptance scenarios run through Cucumber-JS and TypeScript
+Playwright. They cover approval, decline, localized validation, exact currency
+display, Japanese input, repeated submission, post-commit timeout recovery, and
+a keyboard journey at a 390 by 844 responsive viewport. Failed scenarios retain
+a screenshot and Playwright trace; Cucumber also produces HTML, JSON, and JUnit
+reports.
+
 ## Quick start
 
 Python 3.12 or newer is required.
@@ -106,6 +119,20 @@ payment-quality-lab
 
 The API documentation is then available at
 <http://127.0.0.1:8000/docs>.
+
+The synthetic checkout is available at:
+
+- <http://127.0.0.1:8000/checkout?lang=en>
+- <http://127.0.0.1:8000/checkout?lang=ja>
+
+Node 22, 24, or 26 and newer releases are supported by the browser test stack.
+Install Chromium and run the complete browser gate:
+
+```bash
+npm ci
+npx playwright install chromium
+npm run test:browser
+```
 
 Create a synthetic JPY authorization:
 

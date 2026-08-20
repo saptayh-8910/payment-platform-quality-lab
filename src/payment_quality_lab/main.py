@@ -2,10 +2,12 @@
 
 import os
 from collections.abc import Iterator
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from payment_quality_lab.api.routes import get_session, router
@@ -44,6 +46,7 @@ from payment_quality_lab.services.webhooks import (
 )
 
 DEFAULT_WEBHOOK_SIGNING_SECRET = "whsec_local_synthetic_only"
+CHECKOUT_DIRECTORY = Path(__file__).parent / "web" / "checkout"
 
 
 def create_app(
@@ -62,7 +65,7 @@ def create_app(
 
     app = FastAPI(
         title="Payment Platform Quality Lab",
-        version="0.5.0",
+        version="0.6.0",
         description="Privacy-safe payment lifecycle simulator",
     )
     app.state.engine = engine
@@ -75,6 +78,19 @@ def create_app(
 
     app.dependency_overrides[get_session] = provide_session
     app.include_router(router)
+    app.mount(
+        "/checkout/assets",
+        StaticFiles(directory=CHECKOUT_DIRECTORY),
+        name="checkout-assets",
+    )
+
+    @app.get("/checkout", include_in_schema=False)
+    def checkout() -> FileResponse:
+        """Serve the privacy-safe multilingual test checkout."""
+        return FileResponse(
+            CHECKOUT_DIRECTORY / "index.html",
+            media_type="text/html; charset=utf-8",
+        )
 
     @app.exception_handler(PaymentNotFoundError)
     async def payment_not_found(

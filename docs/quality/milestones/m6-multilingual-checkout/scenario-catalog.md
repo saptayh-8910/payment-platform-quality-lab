@@ -5,27 +5,28 @@
 | Field | Value |
 |---|---|
 | Milestone | 6: English and Japanese checkout acceptance testing |
-| Status | Draft for review; scenarios are planned, not passed evidence |
+| Status | Approved and executed; results are recorded in the closing quality report |
 | Owner | Sapta Y Husain |
-| Planned delivery | Catalog PR, then checkout implementation PR |
+| Delivery | Catalog PR #7 and checkout implementation PR #8 |
 | Test basis | `docs/payment-requirements.md`, `docs/test-plan.md`, and the Milestone 5 next risks |
 | Previous evidence | [Milestone 5 quality report](../m5-webhooks-reconciliation/quality-report.md) |
+| Closing evidence | [Milestone 6 quality report](quality-report.md) |
 
 ## Executive summary
 
-This milestone adds a small browser checkout in English and Japanese. It is a
-customer-facing layer over the existing payment API. It will use synthetic
-payment outcomes and will not collect card numbers, security codes, names,
-addresses, or other real payment data.
+This milestone defines and covers a small browser checkout in English and
+Japanese. It is a customer-facing layer over the existing payment API. It uses
+synthetic payment outcomes and does not collect card numbers, security codes,
+names, addresses, or other real payment data.
 
 The main risk is not visual appearance alone. A customer must enter an exact
 amount, understand validation and payment results, and retry safely when the
 outcome is uncertain. The same behavior must remain clear in both languages and
 on a mobile-size screen.
 
-This catalog defines the proposed behavior and evidence before implementation.
-No scenario in this document should be described as passed until the checkout
-tests have run and the closing quality report contains the results.
+This catalog defined the proposed behavior and evidence before implementation.
+The closing quality report now records which evidence ran, the observed defect,
+the remaining limitations, and the release recommendation.
 
 ## Situation
 
@@ -473,29 +474,29 @@ separate end-to-end journey.
 - CI passes on the documented Python and browser environments.
 - Genuine defects and limitations are recorded in the closing quality report.
 
-## Review questions
+## Approved review decisions
 
-1. Approve lightweight FastAPI HTML/CSS/JavaScript instead of a frontend
-   framework?
-2. Approve TypeScript Playwright controlled by Cucumber-JS, with no second
-   browser test runner?
-3. Approve eight Gherkin acceptance scenarios while detailed combinations stay
-   in Node, pytest, API, or integration tests?
-4. Approve a small Page Object Model for locators and actions, while assertions
-   remain visible in the step definitions?
-5. Approve customer-facing JPY whole units and USD decimal units with exact
-   string conversion to API minor units?
-6. Approve English fallback for a missing or unsupported language value?
-7. Approve preserving entered non-sensitive values when language changes?
-8. Approve storing only the active idempotency key and last payment ID in
-   browser session storage?
-9. Approve the Japanese post-commit timeout and safe retry as the centerpiece
-   browser scenario?
-10. Approve Chromium as the required pull-request browser, with Firefox and
-   WebKit considered for a scheduled or manual matrix?
-11. Approve Cucumber HTML/JSON/JUnit reports plus screenshots and traces for
-    failed scenarios?
-12. Approve 390 by 844 as the required mobile viewport while clearly stating
-   that this is responsive-web evidence, not native-mobile testing?
-13. Approve functional Japanese copy with manual review, without claiming
-   professional translation certification?
+1. Use lightweight FastAPI HTML, CSS, and JavaScript instead of a frontend
+   framework.
+2. Use TypeScript Playwright controlled by Cucumber-JS, with no second browser
+   test runner.
+3. Keep eight Gherkin acceptance scenarios while detailed combinations remain
+   in Node, pytest, API, or integration tests.
+4. Use a small Page Object Model for locators and actions while assertions
+   remain visible in the step definitions.
+5. Use customer-facing JPY whole units and USD decimal units with exact string
+   conversion to API minor units.
+6. Use English as the fallback for a missing or unsupported language value.
+7. Preserve entered non-sensitive values when the language changes.
+8. Store only the active idempotency key and last payment ID in browser session
+   storage.
+9. Use the Japanese post-commit timeout and safe retry as the centerpiece
+   browser scenario.
+10. Require Chromium in pull requests, with Firefox and WebKit available for a
+    later scheduled or manual matrix if useful.
+11. Produce Cucumber HTML, JSON, and JUnit reports plus screenshots and traces
+    for failed scenarios.
+12. Require the 390 by 844 mobile viewport while clearly describing this as
+    responsive-web evidence, not native-mobile testing.
+13. Use functional Japanese copy with manual review without claiming
+    professional translation certification.

@@ -21,7 +21,7 @@ a substitute for relevant coverage.
 | Signature verification | Invalid signed payloads must be rejected | M5 `S01` to `S05` | Unit and API webhook tests | Complete |
 | At-least-once delivery | A duplicate delivery must not repeat an effect | M5 `D01` to `D08`, `C01` to `C09` | Integration and API webhook tests | Complete |
 | Reconciliation | Payment, ledger, webhook, and settlement sources must agree | M5 `R01` to `R14` | Unit, integration, and API reconciliation tests | Complete |
-| Multilingual checkout | English and Japanese journeys must remain usable | M6 `LOC-01` to `SAFE-05` | Planned Cucumber-JS, Playwright, Node unit, and manual evidence | Draft for review |
+| Multilingual checkout | English and Japanese journeys must remain usable | M6 `LOC-01` to `SAFE-05` and [closing report](milestones/m6-multilingual-checkout/quality-report.md) | Cucumber-JS, Playwright, Node unit, pytest API, and manual review evidence | Complete |
 | Exploratory quality | Changed high-risk behavior must receive manual investigation | Milestone 7 charter | Planned | Planned |
 | Performance | Expected load must meet a documented baseline | Milestone 8 plan | Planned | Planned |
 
