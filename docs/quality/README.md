@@ -24,6 +24,10 @@ Quality evidence is recorded throughout each milestone:
 4. At project close, a project summary will connect the evidence from all
    milestones.
 
+For an exploratory milestone, the charter replaces the scenario catalog as the
+planning artifact. The completed session record and closing report become the
+executed evidence.
+
 This approach keeps planned coverage separate from executed evidence. A planned
 scenario is not presented as a passed test.
 
@@ -33,8 +37,8 @@ scenario is not presented as a passed test.
 |---|---|---|---|---|
 | 4 | Idempotency, concurrency, and failure recovery | [Catalog](milestones/m4-idempotency-recovery/scenario-catalog.md) | [Report](milestones/m4-idempotency-recovery/quality-report.md) | Complete |
 | 5 | Webhooks and reconciliation | [Catalog](milestones/m5-webhooks-reconciliation/scenario-catalog.md) | [Report](milestones/m5-webhooks-reconciliation/quality-report.md) | Complete |
-| 6 | English/Japanese checkout | [Catalog](milestones/m6-multilingual-checkout/scenario-catalog.md) | Created after execution | Draft for review |
-| 7 | Exploratory testing and defect evidence | Created before implementation | Created after execution | Planned |
+| 6 | English/Japanese checkout | [Catalog](milestones/m6-multilingual-checkout/scenario-catalog.md) | [Report](milestones/m6-multilingual-checkout/quality-report.md) | Complete |
+| 7 | Exploratory testing and defect evidence | [Charter](milestones/m7-exploratory-testing/exploratory-charter.md) | Created after execution | Draft for review |
 | 8 | Performance baseline | Created before implementation | Created after execution | Planned |
 
 The [traceability matrix](traceability-matrix.md) connects requirements, risks,
