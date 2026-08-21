@@ -58,6 +58,8 @@ Feature: Multilingual test checkout
     When the customer submits reference "注文-再試行-001" for "2500" JPY with outcome Approve
     Then the result says "結果を確認できません" in Japanese
     And a Japanese retry action is available
+    When the customer refreshes before retry
+    Then the uncertain Japanese result and retry action remain available
     When the customer retries the uncertain payment
     Then the original payment survives refresh with one financial effect
 

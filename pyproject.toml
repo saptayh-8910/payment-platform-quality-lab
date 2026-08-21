@@ -48,6 +48,7 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
+relative_files = true
 source = ["payment_quality_lab"]
 
 [tool.coverage.report]

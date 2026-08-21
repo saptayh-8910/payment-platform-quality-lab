@@ -111,6 +111,10 @@ When("the customer retries the uncertain payment", async function (this: Checkou
   await checkout(this).retry();
 });
 
+When("the customer refreshes before retry", async function (this: CheckoutWorld) {
+  await checkout(this).refresh();
+});
+
 Then("the result says {string}", async function (this: CheckoutWorld, expected: string) {
   const page = checkout(this);
   await page.waitForResult();
@@ -197,6 +201,17 @@ Then("a Japanese retry action is available", async function (this: CheckoutWorld
   assert.equal(await page.retryIsVisible(), true);
   assert.equal(await page.resultGuidance(), "同じ内容で再試行してください。新しい決済を作成する必要はありません。");
 });
+
+Then(
+  "the uncertain Japanese result and retry action remain available",
+  async function (this: CheckoutWorld) {
+    const page = checkout(this);
+    await page.waitForResult();
+    assert.equal(await page.documentLanguage(), "ja");
+    assert.equal(await page.resultTitle(), "結果を確認できません");
+    assert.equal(await page.retryIsVisible(), true);
+  },
+);
 
 Then(
   "the original payment survives refresh with one financial effect",
