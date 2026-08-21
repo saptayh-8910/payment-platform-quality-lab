@@ -7,7 +7,9 @@
 | Milestone | 7: Structured exploratory testing and defect evidence |
 | Result | Proceed to Milestone 8 with documented limitations |
 | Exploratory commit | `5cde81041e07a78ad898c016f3c42152912121b5` |
-| Pull request | Current Milestone 7 pull request; link added after creation |
+| Resolution and closing test commit | `5b2f771605a4ce35025001761973944fe9434f53` |
+| Pull request | [PR #10](https://github.com/saptayh-8910/payment-platform-quality-lab/pull/10) |
+| Closing CI run | [Run 32451638050](https://github.com/saptayh-8910/payment-platform-quality-lab/actions/runs/32451638050) |
 | Execution date | 2026-08-21 |
 | Executed session | [M7-S01](session-record.md) |
 
@@ -129,7 +131,7 @@ two additional recovery steps. Pull-request CI remains the publication gate.
 | Chromium browser gate | Passed |
 | Ruff lint and formatting | Passed |
 | Working tree whitespace check | Passed |
-| Pull-request CI | Pending pull-request creation |
+| Pull-request CI | Python 3.12, Python 3.14, and Chromium jobs passed |
 
 ## Observations that remain open
 
