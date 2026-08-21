@@ -59,6 +59,10 @@ export class CheckoutPage {
     await this.page.locator("#retry-payment").click();
   }
 
+  async refresh(): Promise<void> {
+    await this.page.reload();
+  }
+
   async waitForResult(): Promise<void> {
     await this.page.locator("#result-panel").waitFor({ state: "visible" });
   }

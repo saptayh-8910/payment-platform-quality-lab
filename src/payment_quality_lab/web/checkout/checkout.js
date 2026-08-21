@@ -111,6 +111,10 @@ let language = readLanguage();
 let currentPayment = null;
 let currentErrorKey = "generalError";
 
+const activeKeyStorageName = "paymentLab.activeIdempotencyKey";
+const activeSubmissionStorageName = "paymentLab.activeSubmission";
+const lastPaymentStorageName = "paymentLab.lastPaymentId";
+
 function readLanguage() {
   const requested = new URLSearchParams(window.location.search).get("lang");
   return requested === "ja" ? "ja" : "en";
@@ -218,12 +222,58 @@ function setProcessing(processing) {
 }
 
 function activeIdempotencyKey() {
-  let key = sessionStorage.getItem("paymentLab.activeIdempotencyKey");
+  let key = sessionStorage.getItem(activeKeyStorageName);
   if (!key) {
     key = `checkout-${crypto.randomUUID()}`;
-    sessionStorage.setItem("paymentLab.activeIdempotencyKey", key);
+    sessionStorage.setItem(activeKeyStorageName, key);
   }
   return key;
+}
+
+function activeSubmission(amount) {
+  return {
+    merchantReference: elements.reference.value,
+    amount,
+    currency: elements.currency.value,
+    outcome: elements.outcome.value === "tok_declined" ? "decline" : "approve",
+  };
+}
+
+function storeActiveSubmission(submission) {
+  sessionStorage.setItem(activeSubmissionStorageName, JSON.stringify(submission));
+}
+
+function clearActiveSubmission() {
+  sessionStorage.removeItem(activeKeyStorageName);
+  sessionStorage.removeItem(activeSubmissionStorageName);
+}
+
+function readActiveSubmission() {
+  const stored = sessionStorage.getItem(activeSubmissionStorageName);
+  if (!stored) {
+    return null;
+  }
+
+  try {
+    const submission = JSON.parse(stored);
+    if (
+      typeof submission !== "object" ||
+      submission === null ||
+      typeof submission.merchantReference !== "string" ||
+      submission.merchantReference.length === 0 ||
+      [...submission.merchantReference].length > 64 ||
+      !Number.isInteger(submission.amount) ||
+      submission.amount <= 0 ||
+      submission.amount > 999_999_999 ||
+      !["JPY", "USD"].includes(submission.currency) ||
+      !["approve", "decline"].includes(submission.outcome)
+    ) {
+      return null;
+    }
+    return submission;
+  } catch {
+    return null;
+  }
 }
 
 async function submitPayment() {
@@ -235,6 +285,7 @@ async function submitPayment() {
   setProcessing(true);
   elements.resultPanel.hidden = true;
   const key = activeIdempotencyKey();
+  storeActiveSubmission(activeSubmission(amount));
 
   try {
     const response = await fetch("/payments", {
@@ -253,14 +304,14 @@ async function submitPayment() {
 
     const body = await response.json().catch(() => ({}));
     if (response.ok) {
-      sessionStorage.removeItem("paymentLab.activeIdempotencyKey");
-      sessionStorage.setItem("paymentLab.lastPaymentId", body.id);
+      clearActiveSubmission();
+      sessionStorage.setItem(lastPaymentStorageName, body.id);
       currentPayment = body;
       renderPayment(body);
     } else if (response.status === 504 && body.code === "payment_timeout") {
       renderUncertain();
     } else {
-      sessionStorage.removeItem("paymentLab.activeIdempotencyKey");
+      clearActiveSubmission();
       renderError("generalError");
     }
   } catch {
@@ -322,8 +373,8 @@ function renderError(messageKey) {
 
 function resetCheckout() {
   currentPayment = null;
-  sessionStorage.removeItem("paymentLab.activeIdempotencyKey");
-  sessionStorage.removeItem("paymentLab.lastPaymentId");
+  clearActiveSubmission();
+  sessionStorage.removeItem(lastPaymentStorageName);
   elements.form.reset();
   clearValidation();
   elements.resultPanel.hidden = true;
@@ -332,23 +383,41 @@ function resetCheckout() {
 }
 
 async function restorePayment() {
-  const paymentId = sessionStorage.getItem("paymentLab.lastPaymentId");
-  if (!paymentId) {
+  const paymentId = sessionStorage.getItem(lastPaymentStorageName);
+  if (paymentId) {
+    try {
+      const response = await fetch(`/payments/${encodeURIComponent(paymentId)}`);
+      if (!response.ok) {
+        sessionStorage.removeItem(lastPaymentStorageName);
+        renderError("missingResult");
+        return;
+      }
+      currentPayment = await response.json();
+      renderPayment(currentPayment);
+    } catch {
+      renderError("generalError");
+    }
     return;
   }
 
-  try {
-    const response = await fetch(`/payments/${encodeURIComponent(paymentId)}`);
-    if (!response.ok) {
-      sessionStorage.removeItem("paymentLab.lastPaymentId");
-      renderError("missingResult");
-      return;
-    }
-    currentPayment = await response.json();
-    renderPayment(currentPayment);
-  } catch {
-    renderError("generalError");
+  const key = sessionStorage.getItem(activeKeyStorageName);
+  const submission = readActiveSubmission();
+  if (!key && !submission) {
+    return;
   }
+  if (!key || key.length < 8 || key.length > 128 || !submission) {
+    clearActiveSubmission();
+    return;
+  }
+
+  elements.reference.value = submission.merchantReference;
+  elements.amount.value =
+    submission.currency === "JPY"
+      ? String(submission.amount)
+      : `${Math.floor(submission.amount / 100)}.${String(submission.amount % 100).padStart(2, "0")}`;
+  elements.currency.value = submission.currency;
+  elements.outcome.value = submission.outcome === "decline" ? "tok_declined" : "tok_approved";
+  renderUncertain();
 }
 
 elements.form.addEventListener("submit", (event) => {

@@ -35,13 +35,16 @@ outbox, and multi-source financial reconciliation.
 
 Test tooling:
 
-- pytest for domain, API, and integration testing
-- FastAPI TestClient for service-level API checks
-- TypeScript Playwright with Cucumber-JS for selected English/Japanese journeys
-- Hypothesis for financial and state-machine invariants
-- k6 for the planned reliability and performance baseline
-- Ruff and branch-aware coverage for fast feedback
-- GitHub Actions for pull-request and release quality gates
+- pytest for domain, API, database, webhook, and reconciliation testing.
+- FastAPI TestClient for service-level HTTP checks.
+- Node's built-in test runner for browser-side money rules.
+- Cucumber-JS for business-readable Gherkin scenarios and scenario reports.
+- TypeScript Playwright for Chromium control, isolated contexts, mobile and
+  keyboard actions, network routing, screenshots, and traces.
+- Hypothesis for financial and state-machine invariants.
+- k6 for the planned reliability and performance baseline.
+- Ruff and branch-aware coverage for fast feedback.
+- GitHub Actions for Python 3.12, Python 3.14, and Chromium pull-request gates.
 
 ## Delivery milestones
 
@@ -51,7 +54,7 @@ Test tooling:
 4. Idempotency, ledger correctness, concurrency, and failure injection
 5. Webhook delivery, consumption, and reconciliation
 6. English/Japanese checkout with TypeScript Playwright and Cucumber-JS
-7. Service-to-service testing, exploratory sessions, and defect evidence
+7. Structured exploratory testing, cross-layer diagnosis, and defect evidence
 8. Performance baseline and portfolio-ready reporting
 
 ## Current status
@@ -62,10 +65,10 @@ accepted lifecycle operation records one immutable ledger entry, increments the
 payment version once, and commits its idempotency record in the same transaction.
 Invalid transitions and over-refunds leave payment and ledger state unchanged.
 
-Current automated evidence includes example-based and Hypothesis-generated
-domain tests, HTTP contract tests, SQLite integration and constraint tests,
-branch-aware coverage, linting, formatting, and a Python 3.12/3.14 GitHub
-Actions matrix.
+The current automated baseline contains 199 pytest tests with 98.40%
+branch-aware coverage, 17 Node money tests, and 8 Cucumber scenarios with 60
+steps. GitHub Actions runs the Python suite on Python 3.12 and 3.14 and runs the
+complete browser gate in Chromium.
 
 Concurrent equivalent requests now claim one idempotency key before applying a
 financial mutation. Successful outcomes store an immutable response snapshot,
@@ -90,15 +93,25 @@ tokens or signing secrets.
 The browser checkout now accepts synthetic JPY and USD amounts in English or
 Japanese. It converts the original amount string to integer minor units, blocks
 normal repeated submission, preserves one idempotency key while a result is
-uncertain, and restores a completed result after refresh. The checkout stores
-only the active idempotency key and last payment ID in session storage.
+uncertain, and restores uncertain or completed results after refresh. During an
+uncertain result, tab-scoped session storage holds the active key and a minimal
+synthetic retry packet: reference, integer amount, currency, and an approval or
+decline choice. It does not store the raw API token. A final result clears that
+packet and keeps only the last payment ID needed for refresh.
 
 Eight Gherkin acceptance scenarios run through Cucumber-JS and TypeScript
 Playwright. They cover approval, decline, localized validation, exact currency
-display, Japanese input, repeated submission, post-commit timeout recovery, and
-a keyboard journey at a 390 by 844 responsive viewport. Failed scenarios retain
-a screenshot and Playwright trace; Cucumber also produces HTML, JSON, and JUnit
-reports.
+display, Japanese input, repeated submission, post-commit timeout recovery
+across refresh, and a keyboard journey at a 390 by 844 responsive viewport.
+Failed scenarios retain a screenshot and Playwright trace; Cucumber also
+produces HTML, JSON, and JUnit reports.
+
+Milestone 7 is closed with an executed exploratory session, timestamped notes,
+finding classification, privacy review, and cross-layer financial evidence. The
+session found one High recovery defect: refresh hid an uncertain payment that
+had already committed. The defect was reproduced in English and Japanese, fixed,
+and added to the critical Cucumber regression journey. No duplicate financial
+effect occurred.
 
 ## Quick start
 
@@ -133,6 +146,26 @@ npm ci
 npx playwright install chromium
 npm run test:browser
 ```
+
+The complete browser gate runs these commands in order:
+
+```bash
+npm run test:unit
+npm run typecheck
+npm run test:acceptance
+```
+
+Generated reports are local or temporary CI evidence and are not committed:
+
+- `reports/junit.xml` and `reports/coverage.xml` for pytest;
+- `reports/cucumber/cucumber-report.html` for a readable scenario report;
+- `reports/cucumber/cucumber-report.json` for later analysis;
+- `reports/cucumber/cucumber-junit.xml` for CI integration; and
+- `reports/browser/` for sanitized failure screenshots and traces.
+
+GitHub Actions keeps Python and browser evidence for 14 days. Human-readable
+milestone decisions remain under `docs/quality/` so a reviewer can understand
+the risks, results, defects, and limitations without downloading CI artifacts.
 
 Create a synthetic JPY authorization:
 
@@ -179,6 +212,10 @@ See:
 - [Settlement and reconciliation](docs/reconciliation.md)
 - [Risk-based test plan](docs/test-plan.md)
 - [Quality evidence and milestone reports](docs/quality/README.md)
+- [Milestone 6 checkout quality report](docs/quality/milestones/m6-multilingual-checkout/quality-report.md)
+- [Milestone 7 exploratory charter](docs/quality/milestones/m7-exploratory-testing/exploratory-charter.md)
+- [Milestone 7 session record](docs/quality/milestones/m7-exploratory-testing/session-record.md)
+- [Milestone 7 quality report](docs/quality/milestones/m7-exploratory-testing/quality-report.md)
 - [Defect reports](docs/defects/)
 
 ## License

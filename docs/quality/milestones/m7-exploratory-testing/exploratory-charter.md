@@ -5,11 +5,12 @@
 | Field | Value |
 |---|---|
 | Milestone | 7: Structured exploratory testing and defect evidence |
-| Status | Draft for review; this is planned work, not executed evidence |
+| Status | Approved and executed; results are recorded in the closing quality report |
 | Owner | Sapta Y Husain |
 | Planned session length | 90 minutes |
 | Test basis | Milestone 6 checkout report, risk-based test plan, and payment requirements |
-| Session record | [Session record template](session-record-template.md) |
+| Session record | [Executed session M7-S01](session-record.md) |
+| Closing evidence | [Milestone 7 quality report](quality-report.md) |
 | Previous evidence | [Milestone 6 quality report](../m6-multilingual-checkout/quality-report.md) |
 
 ## Mission
