@@ -113,6 +113,12 @@ had already committed. The defect was reproduced in English and Japanese, fixed,
 and added to the critical Cucumber regression journey. No duplicate financial
 effect occurred.
 
+Milestone 8 planning now defines a compact k6 baseline for authorization,
+retrieval, concurrent idempotent retry, and a mixed read/write workload. The
+catalog separates strict response and financial-correctness gates from timing
+guardrails, restricts every run to an isolated loopback target, and treats local
+SQLite results as regression evidence rather than production capacity claims.
+
 ## Quick start
 
 Python 3.12 or newer is required.
@@ -216,6 +222,7 @@ See:
 - [Milestone 7 exploratory charter](docs/quality/milestones/m7-exploratory-testing/exploratory-charter.md)
 - [Milestone 7 session record](docs/quality/milestones/m7-exploratory-testing/session-record.md)
 - [Milestone 7 quality report](docs/quality/milestones/m7-exploratory-testing/quality-report.md)
+- [Milestone 8 performance scenario catalog](docs/quality/milestones/m8-performance-baseline/scenario-catalog.md)
 - [Defect reports](docs/defects/)
 
 ## License

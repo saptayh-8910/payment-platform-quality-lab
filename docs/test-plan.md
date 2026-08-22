@@ -63,6 +63,12 @@ Establish a small repeatable baseline for authorization and retrieval. Measure
 throughput, p95 latency, error rate, and duplicate-effect count under concurrent
 idempotent retries. Longer checks run outside the fast pull-request gate.
 
+The detailed workload, proposed p95 and p99 guardrails, loopback-only safety
+rule, financial verifier, and CI policy are defined in the
+[Milestone 8 performance catalog](quality/milestones/m8-performance-baseline/scenario-catalog.md).
+These planned thresholds are simulator regression guardrails, not production
+service-level objectives.
+
 ## 4. Initial coverage map
 
 | Requirement area | Unit | API | Integration | E2E | Exploratory | Performance |
