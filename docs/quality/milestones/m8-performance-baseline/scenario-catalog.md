@@ -5,9 +5,9 @@
 | Field | Value |
 |---|---|
 | Milestone | 8: Performance baseline and portfolio-ready reporting |
-| Status | Draft for review; this is planned work, not executed evidence |
+| Status | Approved plan; implementation in progress, not closing evidence |
 | Owner | Sapta Y Husain |
-| Planned delivery | This catalog PR, followed by separate implementation, CI evidence, and project closeout PRs |
+| Planned delivery | Catalog merged, followed by separate implementation, CI evidence, and project closeout PRs |
 | Test basis | [Risk-based test plan](../../../test-plan.md), [payment requirements](../../../payment-requirements.md), and [Milestone 7 quality report](../m7-exploratory-testing/quality-report.md) |
 | Planned tool | Grafana k6 OSS against a controlled local FastAPI process |
 | Closing evidence | Created only after execution |
@@ -461,13 +461,13 @@ orchestration, verification, and human evidence separate.
 
 ## Decision record
 
-| Decision | Status before review | Reason |
+| Decision | Review status | Reason |
 |---|---|---|
-| Use k6 OSS without a cloud account | Recommended | The project remains local, repeatable, and free of external data transfer |
-| Use arrival-rate executors for measured steady profiles | Recommended | Offered traffic remains explicit when service latency changes |
-| Keep correctness gates stricter than timing guardrails | Recommended | Financial or response errors are not acceptable because timing looks good |
-| Verify database effects outside k6 | Recommended | VUs are isolated, and database counts are a stronger cross-layer oracle |
-| Run only against loopback with no remote override | Recommended | Prevents accidental traffic to an unapproved target |
-| Use `handleSummary()` for sanitized JSON | Recommended | It gives a small reviewed evidence format instead of every request sample |
-| Run smoke on relevant pull requests and longer profiles manually or weekly | Recommended | Pull requests stay fast while baseline evidence remains automated |
-| Treat timing values as simulator guardrails, not production SLOs | Recommended | One process and SQLite cannot represent distributed production capacity |
+| Use k6 OSS without a cloud account | Approved | The project remains local, repeatable, and free of external data transfer |
+| Use arrival-rate executors for measured steady profiles | Approved | Offered traffic remains explicit when service latency changes |
+| Keep correctness gates stricter than timing guardrails | Approved | Financial or response errors are not acceptable because timing looks good |
+| Verify database effects outside k6 | Approved | VUs are isolated, and database counts are a stronger cross-layer oracle |
+| Run only against loopback with no remote override | Approved | Prevents accidental traffic to an unapproved target |
+| Use `handleSummary()` for sanitized JSON | Approved | It gives a small reviewed evidence format instead of every request sample |
+| Run smoke on relevant pull requests and longer profiles manually or weekly | Approved | Pull requests stay fast while baseline evidence remains automated |
+| Treat timing values as simulator guardrails, not production SLOs | Approved | One process and SQLite cannot represent distributed production capacity |

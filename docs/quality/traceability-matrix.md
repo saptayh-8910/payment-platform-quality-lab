@@ -23,7 +23,7 @@ a substitute for relevant coverage.
 | Reconciliation | Payment, ledger, webhook, and settlement sources must agree | M5 `R01` to `R14` | Unit, integration, and API reconciliation tests | Complete |
 | Multilingual checkout | English and Japanese journeys must remain usable | M6 `LOC-01` to `SAFE-05` and [closing report](milestones/m6-multilingual-checkout/quality-report.md) | Cucumber-JS, Playwright, Node unit, pytest API, and manual review evidence | Complete |
 | Exploratory quality | Changed high-risk behavior must receive manual investigation | [Milestone 7 charter](milestones/m7-exploratory-testing/exploratory-charter.md), [session](milestones/m7-exploratory-testing/session-record.md), and [closing report](milestones/m7-exploratory-testing/quality-report.md) | DEF-006 refresh-before-retry regression in the critical Cucumber journey | Complete |
-| Performance | Expected load must meet a documented baseline without losing financial correctness | [Milestone 8 catalog](milestones/m8-performance-baseline/scenario-catalog.md) | k6 traffic, thresholds, and post-run financial verifier are planned | Draft for review |
+| Performance | Expected load must meet a documented baseline without losing financial correctness | [Milestone 8 catalog](milestones/m8-performance-baseline/scenario-catalog.md) and [implementation guide](milestones/m8-performance-baseline/implementation-guide.md) | Local k6 traffic, exact thresholds, sanitized summaries, and the post-run financial verifier are implemented; CI and closing evidence remain | In progress |
 
 ## Maintenance rule
 
