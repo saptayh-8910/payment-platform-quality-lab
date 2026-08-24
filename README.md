@@ -42,7 +42,7 @@ Test tooling:
 - TypeScript Playwright for Chromium control, isolated contexts, mobile and
   keyboard actions, network routing, screenshots, and traces.
 - Hypothesis for financial and state-machine invariants.
-- k6 for the planned reliability and performance baseline.
+- Grafana k6 OSS v2.0.0 for isolated performance and reliability profiles.
 - Ruff and branch-aware coverage for fast feedback.
 - GitHub Actions for Python 3.12, Python 3.14, and Chromium pull-request gates.
 
@@ -65,7 +65,7 @@ accepted lifecycle operation records one immutable ledger entry, increments the
 payment version once, and commits its idempotency record in the same transaction.
 Invalid transitions and over-refunds leave payment and ledger state unchanged.
 
-The current automated baseline contains 199 pytest tests with 98.40%
+The current automated baseline contains 231 pytest tests with 96.74%
 branch-aware coverage, 17 Node money tests, and 8 Cucumber scenarios with 60
 steps. GitHub Actions runs the Python suite on Python 3.12 and 3.14 and runs the
 complete browser gate in Chromium.
@@ -113,11 +113,12 @@ had already committed. The defect was reproduced in English and Japanese, fixed,
 and added to the critical Cucumber regression journey. No duplicate financial
 effect occurred.
 
-Milestone 8 planning now defines a compact k6 baseline for authorization,
-retrieval, concurrent idempotent retry, and a mixed read/write workload. The
-catalog separates strict response and financial-correctness gates from timing
-guardrails, restricts every run to an isolated loopback target, and treats local
-SQLite results as regression evidence rather than production capacity claims.
+Milestone 8 now has a local k6 harness for authorization, retrieval, concurrent
+idempotent retry, and a mixed read/write workload. A loopback-only runner starts
+FastAPI with a fresh temporary SQLite database. k6 checks exact traffic, HTTP
+behavior, dropped work, and response time. An independent Python verifier then
+checks payment, ledger, idempotency, webhook, and currency evidence. Both
+sanitized reports must agree before the run passes.
 
 ## Quick start
 
@@ -161,13 +162,30 @@ npm run typecheck
 npm run test:acceptance
 ```
 
+Grafana k6 OSS v2.0.0 is required for the performance harness. Run the short
+profile after installing that exact version:
+
+```bash
+python scripts/run_performance.py smoke
+```
+
+The measured profile names are `authorization`, `retrieval`,
+`idempotent-burst`, and `mixed`. Every run creates its own loopback application
+and temporary database. See the
+[Milestone 8 implementation guide](docs/quality/milestones/m8-performance-baseline/implementation-guide.md)
+for workloads, commands, evidence fields, safety controls, and limitations.
+
 Generated reports are local or temporary CI evidence and are not committed:
 
 - `reports/junit.xml` and `reports/coverage.xml` for pytest;
 - `reports/cucumber/cucumber-report.html` for a readable scenario report;
 - `reports/cucumber/cucumber-report.json` for later analysis;
 - `reports/cucumber/cucumber-junit.xml` for CI integration; and
-- `reports/browser/` for sanitized failure screenshots and traces.
+- `reports/browser/` for sanitized failure screenshots and traces;
+- `reports/performance/*/*/k6-summary.json` for selected performance metrics;
+  and
+- `reports/performance/*/*/financial-verification.json` for exact post-load
+  financial checks.
 
 GitHub Actions keeps Python and browser evidence for 14 days. Human-readable
 milestone decisions remain under `docs/quality/` so a reviewer can understand
@@ -223,6 +241,7 @@ See:
 - [Milestone 7 session record](docs/quality/milestones/m7-exploratory-testing/session-record.md)
 - [Milestone 7 quality report](docs/quality/milestones/m7-exploratory-testing/quality-report.md)
 - [Milestone 8 performance scenario catalog](docs/quality/milestones/m8-performance-baseline/scenario-catalog.md)
+- [Milestone 8 performance implementation guide](docs/quality/milestones/m8-performance-baseline/implementation-guide.md)
 - [Defect reports](docs/defects/)
 
 ## License

@@ -39,7 +39,7 @@ scenario is not presented as a passed test.
 | 5 | Webhooks and reconciliation | [Catalog](milestones/m5-webhooks-reconciliation/scenario-catalog.md) | [Report](milestones/m5-webhooks-reconciliation/quality-report.md) | Complete |
 | 6 | English/Japanese checkout | [Catalog](milestones/m6-multilingual-checkout/scenario-catalog.md) | [Report](milestones/m6-multilingual-checkout/quality-report.md) | Complete |
 | 7 | Exploratory testing and defect evidence | [Charter](milestones/m7-exploratory-testing/exploratory-charter.md) and [session](milestones/m7-exploratory-testing/session-record.md) | [Report](milestones/m7-exploratory-testing/quality-report.md) | Complete |
-| 8 | Performance baseline and project closeout | [Catalog](milestones/m8-performance-baseline/scenario-catalog.md) | Created after execution | Draft for review |
+| 8 | Performance baseline and project closeout | [Catalog](milestones/m8-performance-baseline/scenario-catalog.md) and [implementation guide](milestones/m8-performance-baseline/implementation-guide.md) | Created after CI and repeated execution | In progress |
 
 The [traceability matrix](traceability-matrix.md) connects requirements, risks,
 scenarios, and evidence across the project.
