@@ -58,4 +58,3 @@ def test_synthetic_identifiers_are_bounded_and_unique() -> None:
 def test_unknown_profile_is_rejected() -> None:
     with pytest.raises(ValueError, match="Unknown performance profile"):
         expected_payments("stress")
-

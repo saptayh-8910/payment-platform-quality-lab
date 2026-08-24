@@ -5,4 +5,3 @@ from payment_quality_lab.performance.runner import main
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

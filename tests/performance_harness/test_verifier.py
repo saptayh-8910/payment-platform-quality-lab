@@ -100,8 +100,7 @@ def test_exact_profile_effects_pass(tmp_path: Path, profile: str) -> None:
     assert report.passed
     assert all(check.passed for check in report.checks)
     assert (
-        set(report.currency_summary) == {"JPY", "USD"}
-        or profile == "idempotent-burst"
+        set(report.currency_summary) == {"JPY", "USD"} or profile == "idempotent-burst"
     )
 
 

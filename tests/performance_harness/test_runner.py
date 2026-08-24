@@ -58,9 +58,7 @@ def test_evidence_requires_two_matching_safe_documents(tmp_path: Path) -> None:
     write_evidence(summary)
     write_evidence(verifier)
 
-    assert runner.validate_evidence(
-        summary, verifier, run_id=RUN_ID, profile="smoke"
-    )
+    assert runner.validate_evidence(summary, verifier, run_id=RUN_ID, profile="smoke")
 
     write_evidence(verifier, profile="mixed")
     assert not runner.validate_evidence(
@@ -117,9 +115,7 @@ def test_threshold_failure_still_runs_verifier_and_cleanup(
         nonlocal run_calls
         run_calls += 1
         if run_calls == 1:
-            return subprocess.CompletedProcess(
-                [], 0, stdout="k6 v2.0.0", stderr=""
-            )
+            return subprocess.CompletedProcess([], 0, stdout="k6 v2.0.0", stderr="")
         write_evidence(Path(kwargs["cwd"]) / "k6-summary.json")
         return subprocess.CompletedProcess([], 99)
 
@@ -176,9 +172,7 @@ def test_health_failure_prevents_load_and_still_cleans_up(
     )
 
     with pytest.raises(RuntimeError, match="not healthy"):
-        runner.run_profile(
-            "smoke", run_id=RUN_ID, reports_root=tmp_path / "reports"
-        )
+        runner.run_profile("smoke", run_id=RUN_ID, reports_root=tmp_path / "reports")
 
     fake_server.terminate.assert_called_once()
 

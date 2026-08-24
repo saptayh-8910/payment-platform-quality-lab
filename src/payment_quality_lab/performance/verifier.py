@@ -116,12 +116,8 @@ def verify_database(database_url: str, run_id: str, profile: str) -> Verificatio
         raise ValueError(f"Unknown performance profile: {profile}")
 
     expected = expected_payments(profile)
-    expected_references = {
-        reference(run_id, profile, payment) for payment in expected
-    }
-    expected_keys = {
-        idempotency_key(run_id, profile, payment) for payment in expected
-    }
+    expected_references = {reference(run_id, profile, payment) for payment in expected}
+    expected_keys = {idempotency_key(run_id, profile, payment) for payment in expected}
     reference_prefix = f"perf-{run_id}-{profile}-%"
     key_prefix = f"perf-{run_id}-{profile}-%"
     engine = create_database_engine(database_url)
@@ -213,8 +209,7 @@ def verify_database(database_url: str, run_id: str, profile: str) -> Verificatio
         _check("payment count", len(expected), len(payments)),
         _private_check(
             "merchant references",
-            expected_references
-            == {payment.merchant_reference for payment in payments},
+            expected_references == {payment.merchant_reference for payment in payments},
             expected_count=len(expected_references),
             observed_count=len({payment.merchant_reference for payment in payments}),
         ),

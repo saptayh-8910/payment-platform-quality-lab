@@ -57,4 +57,3 @@ def reference(run_id: str, profile: str, payment: ExpectedPayment) -> str:
 def idempotency_key(run_id: str, profile: str, payment: ExpectedPayment) -> str:
     """Build the synthetic key pattern used by k6 without exposing actual evidence."""
     return f"perf-{run_id}-{profile}-{payment.phase}-{payment.index}-key"
-
