@@ -1,0 +1,246 @@
+name: Payment performance
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/performance.yml"
+      - "pyproject.toml"
+      - "scripts/run_performance.py"
+      - "scripts/verify_performance.py"
+      - "src/payment_quality_lab/**"
+      - "tests/performance/**"
+      - "tests/performance_harness/**"
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Performance profile to run
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - smoke
+          - authorization
+          - retrieval
+          - idempotent-burst
+          - mixed
+  schedule:
+    - cron: "17 3 * * 2"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: performance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  K6_VERSION: "2.0.0"
+  K6_LINUX_AMD64_SHA256: "2ae87d976f6cdba17185bdd980d8819a3a98e9092c6f0638cd58272ecefc8b90"
+
+jobs:
+  select-profiles:
+    name: Select performance profiles
+    runs-on: ubuntu-24.04
+    outputs:
+      profiles: ${{ steps.selection.outputs.profiles }}
+
+    steps:
+      - name: Select profiles for this trigger
+        id: selection
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SELECTED_PROFILE: ${{ inputs.profile }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            profiles='["smoke"]'
+          elif [[ "$EVENT_NAME" == "schedule" || "$SELECTED_PROFILE" == "all" ]]; then
+            profiles='["smoke","authorization","retrieval","idempotent-burst","mixed"]'
+          else
+            case "$SELECTED_PROFILE" in
+              smoke|authorization|retrieval|idempotent-burst|mixed)
+                profiles="[\"$SELECTED_PROFILE\"]"
+                ;;
+              *)
+                echo "Unsupported performance profile: $SELECTED_PROFILE" >&2
+                exit 1
+                ;;
+            esac
+          fi
+          echo "profiles=$profiles" >> "$GITHUB_OUTPUT"
+          echo "Selected profiles: $profiles"
+
+  performance-harness:
+    name: Validate performance harness
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --editable '.[dev]'
+
+      - name: Check performance harness formatting
+        run: |
+          python -m ruff format --check \
+            src/payment_quality_lab/performance \
+            tests/performance_harness \
+            scripts/run_performance.py \
+            scripts/verify_performance.py
+
+      - name: Lint performance harness
+        run: |
+          python -m ruff check \
+            src/payment_quality_lab/performance \
+            tests/performance_harness \
+            scripts/run_performance.py \
+            scripts/verify_performance.py
+
+      - name: Run performance harness tests
+        run: python -m pytest tests/performance_harness --no-cov
+
+  performance:
+    name: Performance ${{ matrix.profile }}
+    needs: [select-profiles, performance-harness]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: ${{ fromJSON(needs.select-profiles.outputs.profiles) }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install application
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --editable '.[dev]'
+
+      - name: Install pinned k6
+        env:
+          ARCHIVE_NAME: k6-v${{ env.K6_VERSION }}-linux-amd64.tar.gz
+        run: |
+          archive_path="$RUNNER_TEMP/$ARCHIVE_NAME"
+          curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
+            "https://github.com/grafana/k6/releases/download/v${K6_VERSION}/${ARCHIVE_NAME}" \
+            --output "$archive_path"
+          echo "${K6_LINUX_AMD64_SHA256}  ${archive_path}" | sha256sum --check
+          tar --extract --gzip --file "$archive_path" --directory "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/k6-v${K6_VERSION}-linux-amd64" >> "$GITHUB_PATH"
+
+      - name: Verify k6 and inspect selected script
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          k6 version
+          k6 inspect \
+            --env BASE_URL=http://127.0.0.1:8123 \
+            --env PROFILE="$PROFILE" \
+            --env RUN_ID=ciinspect0001 \
+            tests/performance/payment_api.js > /dev/null
+
+      - name: Run payment performance gate
+        id: performance
+        continue-on-error: true
+        env:
+          PROFILE: ${{ matrix.profile }}
+          PERFORMANCE_RUN_ID: ci${{ github.run_id }}${{ github.run_attempt }}
+        run: |
+          python scripts/run_performance.py "$PROFILE" \
+            --run-id "$PERFORMANCE_RUN_ID"
+
+      - name: Prove a failed threshold blocks the runner
+        if: >-
+          matrix.profile == 'smoke' &&
+          github.event_name == 'pull_request' &&
+          steps.performance.outcome == 'success'
+        env:
+          NEGATIVE_RUN_ID: neg${{ github.run_id }}${{ github.run_attempt }}
+        run: |
+          set +e
+          python scripts/run_performance.py smoke \
+            --run-id "$NEGATIVE_RUN_ID" \
+            --force-threshold-failure
+          negative_exit=$?
+          set -e
+          test "$negative_exit" -eq 1
+          jq --exit-status '.passed == false' \
+            "reports/performance/${NEGATIVE_RUN_ID}/smoke/k6-summary.json" > /dev/null
+          jq --exit-status '.passed == true' \
+            "reports/performance/${NEGATIVE_RUN_ID}/smoke/financial-verification.json" > /dev/null
+
+      - name: Write plain-English job summary
+        if: always()
+        env:
+          PROFILE: ${{ matrix.profile }}
+          PERFORMANCE_RUN_ID: ci${{ github.run_id }}${{ github.run_attempt }}
+          PERFORMANCE_OUTCOME: ${{ steps.performance.outcome }}
+        run: |
+          k6_report="reports/performance/${PERFORMANCE_RUN_ID}/${PROFILE}/k6-summary.json"
+          financial_report="reports/performance/${PERFORMANCE_RUN_ID}/${PROFILE}/financial-verification.json"
+          {
+            echo "### Payment performance: ${PROFILE}"
+            echo
+            echo "This job is an automatic quality checkpoint for payment speed and financial correctness."
+            echo
+            if [[ "$PERFORMANCE_OUTCOME" == "success" ]]; then
+              echo "- Overall checkpoint: PASS"
+            else
+              echo "- Overall checkpoint: FAIL"
+            fi
+            if [[ -f "$k6_report" ]]; then
+              echo "- Traffic and timing gate: $(jq --raw-output 'if .passed then "PASS" else "FAIL" end' "$k6_report")"
+              jq --raw-output '
+                .metrics
+                | to_entries[]
+                | select(.key | test("^(setup|warmup|measured)_"))
+                | "- \(.key | gsub("_"; " ")): \(.value.values.count) operations"
+              ' "$k6_report"
+              jq --raw-output '
+                .metrics
+                | to_entries[]
+                | select(.key | endswith("_duration"))
+                | "- \(.key | gsub("_"; " ")): p95=\(.value.values["p(95)"]) ms, p99=\(.value.values["p(99)"]) ms"
+              ' "$k6_report"
+            else
+              echo "- Traffic and timing gate: FAIL (summary missing)"
+            fi
+            if [[ -f "$financial_report" ]]; then
+              echo "- Financial correctness gate: $(jq --raw-output 'if .passed then "PASS" else "FAIL" end' "$financial_report")"
+            else
+              echo "- Financial correctness gate: FAIL (report missing)"
+            fi
+            echo "- Retention: generated evidence is stored for 14 days."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload performance evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: performance-${{ matrix.profile }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/performance/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Enforce performance release gate
+        if: always() && steps.performance.outcome != 'success'
+        run: |
+          echo "The payment performance checkpoint failed. Review the retained evidence before release." >&2
+          exit 1

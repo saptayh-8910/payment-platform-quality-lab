@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Milestone | 8: Performance baseline and portfolio-ready reporting |
-| Status | In progress; harness implemented and local profiles exercised |
+| Status | In progress; harness and CI workflow implemented, closing evidence pending |
 | Test basis | [Performance scenario catalog](scenario-catalog.md) |
 | Load tool | Grafana k6 OSS v2.0.0 |
 | Final decision | Recorded later in the milestone quality report |
@@ -114,6 +114,30 @@ This command is expected to exit with failure. The financial verifier still
 runs, so the evidence can show that the product state remained correct while
 the performance gate was deliberately rejected.
 
+## Automatic business checkpoint
+
+The GitHub Actions workflow turns the local test into a shared release check.
+It removes the need to trust that one person remembered to run the right
+command. Developers, QA engineers, and product stakeholders can see the same
+result and download the same evidence.
+
+| Trigger | Profiles | Business purpose |
+|---|---|---|
+| Relevant pull request | `smoke` | Catch a broken harness, failed payment response, or incorrect financial effect before merge |
+| Manual request | One selected profile or `all` | Support a release decision or focused investigation |
+| Tuesday at 03:17 UTC | All five profiles | Give an early warning when performance or reliability changes over time |
+
+Pull-request smoke runs also execute a controlled impossible threshold. The
+workflow expects that command to fail, then confirms that k6 recorded a failed
+gate while the financial verifier still completed. This proves that a real
+threshold failure cannot be reported as success merely because evidence was
+uploaded.
+
+The workflow validates the Python harness once, installs the checksum-verified
+k6 v2.0.0 Linux binary, inspects each selected script, and runs every selected
+profile in an isolated matrix job. A failure in one profile does not cancel the
+other profiles.
+
 ## Reading the evidence
 
 Each run writes two generated files under
@@ -130,14 +154,21 @@ database URLs, failure controls, home-directory paths, and workstation names.
 Per-request output is not retained.
 
 The `reports/` directory is ignored by Git. Generated local results are useful
-for investigation, but they are not permanent milestone evidence. The closing
-quality report will record the reviewed CI environment, repeated baseline
-results, limitations, and final recommendation.
+for investigation. In GitHub Actions, the same files are uploaded for 14 days,
+even when the performance command fails. The job writes a short summary of the
+traffic, timing, and financial decisions before it enforces the final result.
+
+These generated files are supporting evidence, not the permanent milestone
+decision. The closing quality report will record the reviewed CI environment,
+repeated baseline results, limitations, and final recommendation.
 
 ## Current boundary
 
-This implementation does not add the pull-request, manual, or weekly GitHub
-Actions workflow. That work remains in the next Milestone 8 pull request. It
-also does not claim production capacity. FastAPI, k6, and SQLite share one local
-machine, so results are regression guardrails for this simulator only.
+The workflow must be merged before manual and scheduled execution are available
+from the default branch. Milestone 8 also remains open until the complete
+baseline runs twice from merged code and the closing report explains timing
+variation and limitations.
 
+This project does not claim production capacity. FastAPI, k6, and SQLite share
+one GitHub-hosted runner, so results are regression guardrails for this
+simulator only.
