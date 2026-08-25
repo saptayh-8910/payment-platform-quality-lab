@@ -63,11 +63,13 @@ Establish a small repeatable baseline for authorization and retrieval. Measure
 throughput, p95 latency, error rate, and duplicate-effect count under concurrent
 idempotent retries. Longer checks run outside the fast pull-request gate.
 
-The detailed workload, proposed p95 and p99 guardrails, loopback-only safety
-rule, financial verifier, and CI policy are defined in the
+The detailed workload, p95 and p99 guardrails, loopback-only safety rule,
+financial verifier, and automatic CI policy are defined in the
 [Milestone 8 performance catalog](quality/milestones/m8-performance-baseline/scenario-catalog.md).
-These planned thresholds are simulator regression guardrails, not production
-service-level objectives.
+These thresholds are simulator regression guardrails, not production
+service-level objectives. The short smoke profile runs for relevant pull
+requests. Reviewers can start longer profiles manually, and the full set runs
+weekly with evidence retained for investigation.
 
 ## 4. Initial coverage map
 
@@ -78,7 +80,7 @@ service-level objectives.
 | Refunds | Yes | Yes | Yes | Limited | Yes | Later |
 | Idempotency and concurrency | Yes | Yes | Yes | Yes | Yes | Yes |
 | Webhooks | Yes | Yes | Yes | Limited | Yes | Later |
-| Currency correctness | Yes | Yes | Yes | Yes | Yes | No |
+| Currency correctness | Yes | Yes | Yes | Yes | Yes | Yes |
 | Reconciliation | Yes | API/CLI | Yes | Yes | Yes | No |
 | English/Japanese checkout | Limited | No | No | Yes | Yes | Limited |
 
@@ -99,17 +101,18 @@ for their own setup and cleanup.
 
 ## 6. Automation and release gates
 
-The planned fast pull-request gate includes:
+The fast pull-request gate includes:
 
 - Ruff linting and formatting checks;
 - unit, API, and integration tests;
 - branch-aware coverage with an initial 85% threshold after the vertical slice;
 - the small approved Cucumber-JS suite in Chromium when the UI exists;
+- the short payment performance smoke profile when relevant code changes;
 - machine-readable test and coverage reports.
 
-Scheduled or manually triggered workflows will contain longer browser,
-concurrency, fault-recovery, and performance suites. External unreliability must
-not be introduced into deterministic merge checks.
+The performance workflow also supports manually selected profiles and a weekly
+complete run. External unreliability must not be introduced into deterministic
+merge checks.
 
 ## 7. Manual release checklist
 

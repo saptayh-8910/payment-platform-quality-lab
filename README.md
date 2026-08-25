@@ -44,7 +44,8 @@ Test tooling:
 - Hypothesis for financial and state-machine invariants.
 - Grafana k6 OSS v2.0.0 for isolated performance and reliability profiles.
 - Ruff and branch-aware coverage for fast feedback.
-- GitHub Actions for Python 3.12, Python 3.14, and Chromium pull-request gates.
+- GitHub Actions for Python, Chromium, automatic performance checkpoints, and
+  retained test evidence.
 
 ## Delivery milestones
 
@@ -120,6 +121,12 @@ behavior, dropped work, and response time. An independent Python verifier then
 checks payment, ledger, idempotency, webhook, and currency evidence. Both
 sanitized reports must agree before the run passes.
 
+The performance workflow runs the short smoke checkpoint for relevant pull
+requests. A reviewer can manually select one profile or the full set, and a
+weekly run provides an early warning for changes in speed or financial
+reliability. Each profile uploads sanitized evidence before GitHub enforces the
+final pass or fail decision.
+
 ## Quick start
 
 Python 3.12 or newer is required.
@@ -175,6 +182,11 @@ and temporary database. See the
 [Milestone 8 implementation guide](docs/quality/milestones/m8-performance-baseline/implementation-guide.md)
 for workloads, commands, evidence fields, safety controls, and limitations.
 
+After the performance workflow is available on `main`, use its **Run workflow**
+button to select one profile or `all`. Relevant pull requests run `smoke`
+automatically. The weekly workflow runs the complete set without delaying every
+code review.
+
 Generated reports are local or temporary CI evidence and are not committed:
 
 - `reports/junit.xml` and `reports/coverage.xml` for pytest;
@@ -187,9 +199,10 @@ Generated reports are local or temporary CI evidence and are not committed:
 - `reports/performance/*/*/financial-verification.json` for exact post-load
   financial checks.
 
-GitHub Actions keeps Python and browser evidence for 14 days. Human-readable
-milestone decisions remain under `docs/quality/` so a reviewer can understand
-the risks, results, defects, and limitations without downloading CI artifacts.
+GitHub Actions keeps Python, browser, and performance evidence for 14 days.
+Human-readable milestone decisions remain under `docs/quality/` so a reviewer
+can understand the risks, results, defects, and limitations without downloading
+CI artifacts.
 
 Create a synthetic JPY authorization:
 
