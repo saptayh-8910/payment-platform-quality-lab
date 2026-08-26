@@ -8,6 +8,7 @@
 | Result | Proceed with documented limitations |
 | Tested commit | `213b6411c9e590aed27b939016d5bde04d166761` on `main` |
 | Implementation pull requests | [PR #12](https://github.com/saptayh-8910/payment-platform-quality-lab/pull/12) and [PR #13](https://github.com/saptayh-8910/payment-platform-quality-lab/pull/13) |
+| Closeout pull request | [PR #14](https://github.com/saptayh-8910/payment-platform-quality-lab/pull/14) |
 | Complete passing runs | [Run 32947429733](https://github.com/saptayh-8910/payment-platform-quality-lab/actions/runs/32947429733) and [Run 32948122600](https://github.com/saptayh-8910/payment-platform-quality-lab/actions/runs/32948122600) |
 | Investigated variation | [Run 32947684201](https://github.com/saptayh-8910/payment-platform-quality-lab/actions/runs/32947684201) and [confirmation run 32947945877](https://github.com/saptayh-8910/payment-platform-quality-lab/actions/runs/32947945877) |
 | Execution date | 2026-08-26 |
