@@ -5,10 +5,10 @@
 | Field | Value |
 |---|---|
 | Milestone | 8: Performance baseline and portfolio-ready reporting |
-| Status | In progress; harness and CI workflow implemented, closing evidence pending |
+| Status | Complete; harness, CI workflow, and closing evidence delivered |
 | Test basis | [Performance scenario catalog](scenario-catalog.md) |
 | Load tool | Grafana k6 OSS v2.0.0 |
-| Final decision | Recorded later in the milestone quality report |
+| Final decision | [Proceed with documented limitations](quality-report.md) |
 
 ## Situation
 
@@ -164,10 +164,9 @@ repeated baseline results, limitations, and final recommendation.
 
 ## Current boundary
 
-The workflow must be merged before manual and scheduled execution are available
-from the default branch. Milestone 8 also remains open until the complete
-baseline runs twice from merged code and the closing report explains timing
-variation and limitations.
+The workflow is available from the default branch. The complete baseline passed
+twice on merged code, and the [closing quality report](quality-report.md)
+explains the observed timing variation, financial evidence, and limitations.
 
 This project does not claim production capacity. FastAPI, k6, and SQLite share
 one GitHub-hosted runner, so results are regression guardrails for this

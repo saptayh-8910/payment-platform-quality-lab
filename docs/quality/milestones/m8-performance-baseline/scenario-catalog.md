@@ -5,12 +5,12 @@
 | Field | Value |
 |---|---|
 | Milestone | 8: Performance baseline and portfolio-ready reporting |
-| Status | Approved plan; implementation in progress, not closing evidence |
+| Status | Complete; executed results are recorded separately |
 | Owner | Sapta Y Husain |
 | Planned delivery | Catalog merged, followed by separate implementation, CI evidence, and project closeout PRs |
 | Test basis | [Risk-based test plan](../../../test-plan.md), [payment requirements](../../../payment-requirements.md), and [Milestone 7 quality report](../m7-exploratory-testing/quality-report.md) |
 | Planned tool | Grafana k6 OSS against a controlled local FastAPI process |
-| Closing evidence | Created only after execution |
+| Closing evidence | [Quality report](quality-report.md) and [sanitized example summary](example-summary.json) |
 
 ## Executive summary
 
