@@ -127,6 +127,15 @@ weekly run provides an early warning for changes in speed or financial
 reliability. Each profile uploads sanitized evidence before GitHub enforces the
 final pass or fail decision.
 
+Milestone 8 is closed with two complete passing baselines on merged code. Every
+profile had zero HTTP failures, zero dropped iterations, and exact post-load
+financial evidence. One intervening authorization execution exceeded its p99
+guardrail while keeping correct financial records. The workflow blocked that
+run, retained the evidence, and later passed a focused confirmation and a second
+complete baseline without changing the thresholds. The
+[Milestone 8 quality report](docs/quality/milestones/m8-performance-baseline/quality-report.md)
+records the results, variation, limitations, and final recommendation.
+
 ## Quick start
 
 Python 3.12 or newer is required.
@@ -249,12 +258,15 @@ See:
 - [Settlement and reconciliation](docs/reconciliation.md)
 - [Risk-based test plan](docs/test-plan.md)
 - [Quality evidence and milestone reports](docs/quality/README.md)
+- [Final project quality summary](docs/quality/project-summary.md)
 - [Milestone 6 checkout quality report](docs/quality/milestones/m6-multilingual-checkout/quality-report.md)
 - [Milestone 7 exploratory charter](docs/quality/milestones/m7-exploratory-testing/exploratory-charter.md)
 - [Milestone 7 session record](docs/quality/milestones/m7-exploratory-testing/session-record.md)
 - [Milestone 7 quality report](docs/quality/milestones/m7-exploratory-testing/quality-report.md)
 - [Milestone 8 performance scenario catalog](docs/quality/milestones/m8-performance-baseline/scenario-catalog.md)
 - [Milestone 8 performance implementation guide](docs/quality/milestones/m8-performance-baseline/implementation-guide.md)
+- [Milestone 8 performance quality report](docs/quality/milestones/m8-performance-baseline/quality-report.md)
+- [Milestone 8 sanitized example summary](docs/quality/milestones/m8-performance-baseline/example-summary.json)
 - [Defect reports](docs/defects/)
 
 ## License

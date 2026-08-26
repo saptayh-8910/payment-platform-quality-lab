@@ -21,8 +21,8 @@ Quality evidence is recorded throughout each milestone:
    when they are observed.
 3. At milestone close, a quality report records the actual environment, results,
    limitations, and release recommendation.
-4. At project close, a project summary will connect the evidence from all
-   milestones.
+4. At project close, the [project quality summary](project-summary.md) connects
+   the evidence from all milestones.
 
 For an exploratory milestone, the charter replaces the scenario catalog as the
 planning artifact. The completed session record and closing report become the
@@ -39,10 +39,14 @@ scenario is not presented as a passed test.
 | 5 | Webhooks and reconciliation | [Catalog](milestones/m5-webhooks-reconciliation/scenario-catalog.md) | [Report](milestones/m5-webhooks-reconciliation/quality-report.md) | Complete |
 | 6 | English/Japanese checkout | [Catalog](milestones/m6-multilingual-checkout/scenario-catalog.md) | [Report](milestones/m6-multilingual-checkout/quality-report.md) | Complete |
 | 7 | Exploratory testing and defect evidence | [Charter](milestones/m7-exploratory-testing/exploratory-charter.md) and [session](milestones/m7-exploratory-testing/session-record.md) | [Report](milestones/m7-exploratory-testing/quality-report.md) | Complete |
-| 8 | Performance baseline and project closeout | [Catalog](milestones/m8-performance-baseline/scenario-catalog.md) and [implementation guide](milestones/m8-performance-baseline/implementation-guide.md) | Created after CI and repeated execution | In progress |
+| 8 | Performance baseline and project closeout | [Catalog](milestones/m8-performance-baseline/scenario-catalog.md) and [implementation guide](milestones/m8-performance-baseline/implementation-guide.md) | [Report](milestones/m8-performance-baseline/quality-report.md) and [sanitized summary](milestones/m8-performance-baseline/example-summary.json) | Complete |
 
 The [traceability matrix](traceability-matrix.md) connects requirements, risks,
 scenarios, and evidence across the project.
+
+The [project quality summary](project-summary.md) gives the final decision,
+milestone story, genuine findings, evidence boundaries, and recommended review
+path.
 
 Future milestones use the same
 [scenario catalog template](templates/scenario-catalog-template.md) and

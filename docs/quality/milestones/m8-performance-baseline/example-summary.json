@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "evidence_type": "sanitized_milestone_baseline_summary",
+  "execution_date": "2026-08-26",
+  "tested_commit": "213b6411c9e590aed27b939016d5bde04d166761",
+  "environment": {
+    "runner": "github-hosted ubuntu-24.04",
+    "operating_system": "Ubuntu 24.04.4 LTS",
+    "python": "3.14.7",
+    "k6": "v2.0.0",
+    "target": "isolated-loopback",
+    "database": "temporary SQLite"
+  },
+  "passing_runs": [
+    {
+      "github_run_id": 32947429733,
+      "profiles_passed": 5,
+      "http_failure_rate": 0,
+      "dropped_iterations": 0,
+      "financial_checks_passed": 85,
+      "timings_ms": {
+        "authorization": {"p95": 10.15, "p99": 13.25},
+        "retrieval": {"p95": 2.43, "p99": 2.58},
+        "idempotent_replay": {"p95": 43.75, "p99": 45.59},
+        "mixed_authorization": {"p95": 10.35, "p99": 16.12},
+        "mixed_retrieval": {"p95": 6.48, "p99": 7.39}
+      }
+    },
+    {
+      "github_run_id": 32948122600,
+      "profiles_passed": 5,
+      "http_failure_rate": 0,
+      "dropped_iterations": 0,
+      "financial_checks_passed": 85,
+      "timings_ms": {
+        "authorization": {"p95": 6.90, "p99": 25.54},
+        "retrieval": {"p95": 2.74, "p99": 2.87},
+        "idempotent_replay": {"p95": 79.22, "p99": 80.15},
+        "mixed_authorization": {"p95": 10.16, "p99": 12.43},
+        "mixed_retrieval": {"p95": 6.28, "p99": 7.33}
+      }
+    }
+  ],
+  "investigated_observation": {
+    "github_run_id": 32947684201,
+    "profile": "authorization",
+    "traffic_completed": true,
+    "http_failure_rate": 0,
+    "dropped_iterations": 0,
+    "financial_checks_passed": 17,
+    "authorization_p95_ms": 470.07,
+    "authorization_p99_ms": 1588.51,
+    "failed_guardrail": "p99 < 1000 ms",
+    "confirmation_run_id": 32947945877,
+    "confirmation_passed": true,
+    "threshold_changed": false
+  },
+  "decision": "proceed_with_documented_limitations"
+}
