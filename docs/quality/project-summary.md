@@ -134,11 +134,9 @@ A reviewer can understand the project efficiently in this order:
 
 ## Next planned enhancement
 
-The next enhancement will translate selected public payment-provider test
-behaviors into provider-neutral simulator scenarios. The test basis will include
-the official [KOMOJU test inputs](https://doc.komoju.com/docs/test-cards),
-[KOMOJU 3-D Secure testing guide](https://doc.komoju.com/docs/testing-3d-secure-3ds),
-and [PayPay sandbox checklist](https://developer.paypay.ne.jp/products/docs/checkList).
+The next enhancement will translate selected public payment-platform test
+patterns into provider-neutral simulator scenarios. Scenario sources and
+product-specific values will remain outside this independent repository.
 
 The work will use semantic synthetic outcomes such as insufficient funds,
 expired payment method, challenge failure, interrupted redirect, and backend
