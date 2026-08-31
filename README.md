@@ -267,6 +267,7 @@ See:
 - [Milestone 8 performance implementation guide](docs/quality/milestones/m8-performance-baseline/implementation-guide.md)
 - [Milestone 8 performance quality report](docs/quality/milestones/m8-performance-baseline/quality-report.md)
 - [Milestone 8 sanitized example summary](docs/quality/milestones/m8-performance-baseline/example-summary.json)
+- [Enhancement 1 detailed decline scenario catalog](docs/quality/enhancements/e1-detailed-decline-outcomes/scenario-catalog.md)
 - [Defect reports](docs/defects/)
 
 ## License

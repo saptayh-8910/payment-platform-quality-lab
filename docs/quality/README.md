@@ -48,7 +48,16 @@ The [project quality summary](project-summary.md) gives the final decision,
 milestone story, genuine findings, evidence boundaries, and recommended review
 path.
 
-Future milestones use the same
+## Post-MVP enhancements
+
+| Enhancement | Quality focus | Scenario catalog | Closing report | Status |
+|---|---|---|---|---|
+| 1 | Detailed declined-payment outcomes | [Catalog](enhancements/e1-detailed-decline-outcomes/scenario-catalog.md) | Created only after implementation and execution | Approved plan |
+
+An approved enhancement catalog records intended behavior, not passed evidence.
+Implementation and closing results remain separate review steps.
+
+Future milestones and enhancements use the same
 [scenario catalog template](templates/scenario-catalog-template.md) and
 [quality report template](templates/quality-report-template.md). The templates
 keep the evidence consistent without forcing every milestone to use the same
