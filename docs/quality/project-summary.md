@@ -134,11 +134,14 @@ A reviewer can understand the project efficiently in this order:
 
 ## Next planned enhancement
 
-The next enhancement will translate selected public payment-platform test
-patterns into provider-neutral simulator scenarios. Scenario sources and
-product-specific values will remain outside this independent repository.
+The [first enhancement catalog](enhancements/e1-detailed-decline-outcomes/scenario-catalog.md)
+translates selected public payment-platform test patterns into provider-neutral
+decline scenarios. Scenario sources and product-specific values remain outside
+this independent repository. The catalog is an approved plan, not passed
+evidence.
 
-The work will use semantic synthetic outcomes such as insufficient funds,
-expired payment method, challenge failure, interrupted redirect, and backend
-status confirmation. It will not copy live data or claim that this simulator
-tests either provider's production system.
+The first work slice will use semantic synthetic decline outcomes such as
+insufficient funds and an expired payment method. Customer-action challenges,
+interrupted redirects, and backend status confirmation remain separate future
+review topics. The work will not copy live data or claim that this simulator
+tests an external production system.
