@@ -21,6 +21,7 @@ A payment has:
 - an amount expressed as a positive integer in minor units;
 - an ISO 4217 currency code;
 - a lifecycle status;
+- a normalized decline reason when the lifecycle status is `DECLINED`;
 - authorized, captured, and refunded totals;
 - created and updated timestamps;
 - a monotonically increasing version for concurrency control.
@@ -65,6 +66,10 @@ change.
 - An authorization decision must be deterministic under test control.
 - A declined request creates a visible declined payment but no positive financial
   ledger effect.
+- Every declined payment stores one recognized provider-neutral reason.
+- An authorized payment has no decline reason.
+- The legacy `tok_declined` simulator control remains a backward-compatible
+  alias for the safe `unknown` reason.
 - Invalid amount, currency, or merchant reference must be rejected before any
   payment or ledger record is created.
 
@@ -98,6 +103,8 @@ change.
 ### 3.5 Webhooks
 
 - Successful lifecycle changes produce uniquely identified webhook events.
+- A declined full-snapshot event contains the same normalized reason as the
+  payment; non-declined events contain no decline reason.
 - Webhook payloads are signed; invalid signatures are rejected by the consumer.
 - Delivery is at least once, so consumers must tolerate duplicates.
 - Consumers must not assume delivery order.
@@ -168,6 +175,20 @@ The webhook delivery slice resolved these decisions:
 - Reconciliation is read-only and never creates a financial effect.
 - JPY and USD totals are grouped separately; no cross-currency total is valid.
 
+Enhancement 1 resolved these decisions:
+
+- `DECLINED` remains one lifecycle state; a separate normalized reason explains
+  why the attempt was declined.
+- Six provider-neutral reasons are supported: insufficient funds, limit
+  exceeded, expired payment method, failed verification, invalid payment
+  method, and unknown.
+- The normalized reason is preserved in payment retrieval, idempotent response
+  snapshots, webhook events, and merchant projections.
+- Customer guidance maps the reason to reviewed English or Japanese text and
+  never displays the machine-readable code directly.
+- Identical idempotent retries return the original reason. Reusing the key with
+  a changed token, amount, currency, or merchant reference returns a conflict.
+
 These are documented as testability concerns rather than silently embedded in
 the implementation.
 
@@ -176,5 +197,7 @@ the implementation.
 - Test data must use synthetic customer and merchant values.
 - The service must not accept PAN, CVV, or other cardholder data.
 - Logs and reports must not contain secrets or webhook signing keys.
+- Submitted simulator tokens must not appear in retained API evidence, webhook
+  payloads, browser storage, screenshots, traces, or reports.
 - This project demonstrates selected security-related tests but is not a security
   certification or production payment implementation.

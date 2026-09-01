@@ -27,6 +27,7 @@ def test_checkout_serves_semantic_page(client: TestClient) -> None:
 def test_checkout_serves_browser_assets(client: TestClient) -> None:
     for asset, media_type in [
         ("checkout.js", "text/javascript"),
+        ("decline-messages.js", "text/javascript"),
         ("money.js", "text/javascript"),
         ("styles.css", "text/css"),
     ]:
@@ -34,6 +35,24 @@ def test_checkout_serves_browser_assets(client: TestClient) -> None:
 
         assert response.status_code == 200
         assert response.headers["content-type"].startswith(media_type)
+
+
+def test_checkout_exposes_detailed_synthetic_decline_choices(
+    client: TestClient,
+) -> None:
+    response = client.get("/checkout?lang=en")
+
+    assert response.status_code == 200
+    for token in [
+        "tok_declined_insufficient_funds",
+        "tok_declined_limit_exceeded",
+        "tok_declined_expired",
+        "tok_declined_verification",
+        "tok_declined_invalid",
+        "tok_declined_unknown",
+    ]:
+        assert f'value="{token}"' in response.text
+    assert 'value="tok_declined"' not in response.text
 
 
 def test_checkout_is_not_added_to_payment_openapi_contract(client: TestClient) -> None:

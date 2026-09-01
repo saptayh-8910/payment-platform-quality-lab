@@ -1,4 +1,19 @@
 import { formatMinorUnits, parseMinorUnits } from "/checkout/assets/money.js";
+import { guidanceForDecline } from "/checkout/assets/decline-messages.js";
+
+const storedOutcomeByToken = Object.freeze({
+  tok_approved: "approve",
+  tok_declined_insufficient_funds: "decline-insufficient-funds",
+  tok_declined_limit_exceeded: "decline-limit-exceeded",
+  tok_declined_expired: "decline-expired",
+  tok_declined_verification: "decline-verification",
+  tok_declined_invalid: "decline-invalid",
+  tok_declined_unknown: "decline-unknown",
+});
+
+const tokenByStoredOutcome = Object.freeze(
+  Object.fromEntries(Object.entries(storedOutcomeByToken).map(([token, outcome]) => [outcome, token])),
+);
 
 const copy = {
   en: {
@@ -16,7 +31,12 @@ const copy = {
     currency: "Currency",
     outcome: "Test outcome",
     approve: "Approve",
-    decline: "Decline",
+    declineInsufficientFunds: "Decline — insufficient funds",
+    declineLimitExceeded: "Decline — limit exceeded",
+    declineExpired: "Decline — expired payment method",
+    declineVerification: "Decline — verification failed",
+    declineInvalid: "Decline — invalid payment method",
+    declineUnknown: "Decline — other reason",
     outcomeHelp: "This controls the simulator. It is not a payment method.",
     submit: "Run test payment",
     processing: "Processing…",
@@ -28,7 +48,6 @@ const copy = {
     authorizedStatus: "Authorized",
     declinedStatus: "Declined",
     authorizedGuidance: "The synthetic authorization completed successfully.",
-    declinedGuidance: "No financial amount was authorized.",
     uncertain: "The result is uncertain",
     uncertainGuidance: "Retry with the same details. A new payment request is not needed.",
     retry: "Retry",
@@ -55,7 +74,12 @@ const copy = {
     currency: "通貨",
     outcome: "テスト結果",
     approve: "承認",
-    decline: "拒否",
+    declineInsufficientFunds: "拒否 — 残高不足",
+    declineLimitExceeded: "拒否 — 利用限度額超過",
+    declineExpired: "拒否 — 有効期限切れ",
+    declineVerification: "拒否 — 情報確認失敗",
+    declineInvalid: "拒否 — 利用できない決済方法",
+    declineUnknown: "拒否 — その他の理由",
     outcomeHelp: "シミュレーターの結果を選びます。実際の決済方法ではありません。",
     submit: "テスト決済を実行",
     processing: "処理中です…",
@@ -67,7 +91,6 @@ const copy = {
     authorizedStatus: "承認済み",
     declinedStatus: "拒否",
     authorizedGuidance: "テスト用の承認が完了しました。",
-    declinedGuidance: "金額は承認されていません。",
     uncertain: "結果を確認できません",
     uncertainGuidance: "同じ内容で再試行してください。新しい決済を作成する必要はありません。",
     retry: "再試行",
@@ -235,7 +258,7 @@ function activeSubmission(amount) {
     merchantReference: elements.reference.value,
     amount,
     currency: elements.currency.value,
-    outcome: elements.outcome.value === "tok_declined" ? "decline" : "approve",
+    outcome: storedOutcomeByToken[elements.outcome.value],
   };
 }
 
@@ -266,7 +289,7 @@ function readActiveSubmission() {
       submission.amount <= 0 ||
       submission.amount > 999_999_999 ||
       !["JPY", "USD"].includes(submission.currency) ||
-      !["approve", "decline"].includes(submission.outcome)
+      !Object.hasOwn(tokenByStoredOutcome, submission.outcome)
     ) {
       return null;
     }
@@ -335,7 +358,7 @@ function renderPayment(payment) {
   elements.resultTitle.textContent = authorized ? copy[language].authorized : copy[language].declined;
   elements.resultGuidance.textContent = authorized
     ? copy[language].authorizedGuidance
-    : copy[language].declinedGuidance;
+    : guidanceForDecline(payment.decline_reason, language);
   elements.paymentDetails.hidden = false;
   elements.paymentId.textContent = payment.id;
   elements.resultReference.textContent = payment.merchant_reference;
@@ -416,7 +439,7 @@ async function restorePayment() {
       ? String(submission.amount)
       : `${Math.floor(submission.amount / 100)}.${String(submission.amount % 100).padStart(2, "0")}`;
   elements.currency.value = submission.currency;
-  elements.outcome.value = submission.outcome === "decline" ? "tok_declined" : "tok_approved";
+  elements.outcome.value = tokenByStoredOutcome[submission.outcome];
   renderUncertain();
 }
 

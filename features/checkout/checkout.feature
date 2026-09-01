@@ -28,13 +28,30 @@ Feature: Multilingual test checkout
     And the result shows "$25.50" and status "Authorized"
     And the API stores 2550 minor units
 
-  @localization @negative
-  Scenario: Japanese declined payment is explained clearly
-    Given the checkout is open in Japanese
-    When the customer submits reference "注文-拒否-001" for "2500" JPY with outcome Decline
-    Then the result says "決済が拒否されました" in Japanese
-    And the result shows "￥2,500" and status "拒否"
+  @critical @localization @negative @detailed-decline
+  Scenario Outline: Insufficient-funds guidance follows the selected language
+    Given the checkout is open in <language>
+    When the customer submits reference "decline-guidance-001" for "2500" JPY with outcome InsufficientFunds
+    Then the result says "<title>"
+    And the result shows "<amount>" and status "<status>"
+    And the decline guidance says "<guidance>"
+    And no internal decline code is displayed
+    And browser storage contains no submitted payment token
     And the payment has zero ledger entries and one webhook event
+
+    Examples:
+      | language | title                  | amount | status   | guidance |
+      | English  | Payment declined       | ¥2,500 | Declined | Available funds may be insufficient. Check the balance or try another payment method. |
+      | Japanese | 決済が拒否されました   | ￥2,500 | 拒否     | 利用可能残高が不足している可能性があります。残高を確認するか、別の決済方法をお試しください。 |
+
+  @negative @reliability
+  Scenario: Declined result does not resubmit without customer action
+    Given the checkout is open in English
+    When the customer submits reference "decline-no-resubmit-001" for "2500" JPY with outcome Unknown
+    Then the result says "Payment declined"
+    And the browser sent one payment request
+    When the customer waits without taking action
+    Then the browser sent one payment request
 
   @localization @accessibility @negative
   Scenario: Invalid amount gives localized keyboard guidance

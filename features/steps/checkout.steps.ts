@@ -141,6 +141,35 @@ Then(
 );
 
 Then(
+  "the decline guidance says {string}",
+  async function (this: CheckoutWorld, expected: string) {
+    assert.equal(await checkout(this).resultGuidance(), expected);
+  },
+);
+
+Then(
+  "no internal decline code is displayed",
+  async function (this: CheckoutWorld) {
+    const page = checkout(this);
+    const payment = (await this.getJson(
+      `/payments/${await page.paymentId()}`,
+    )) as PaymentResponse;
+    assert.equal(payment.status, "DECLINED");
+    assert.ok(payment.decline_reason);
+    assert.equal((await page.resultGuidance()).includes(payment.decline_reason), false);
+    assert.equal((await page.resultGuidance()).includes("tok_declined"), false);
+  },
+);
+
+Then(
+  "browser storage contains no submitted payment token",
+  async function (this: CheckoutWorld) {
+    const storage = await this.requirePage().evaluate(() => JSON.stringify(sessionStorage));
+    assert.equal(storage.includes("tok_"), false);
+  },
+);
+
+Then(
   "the entered reference {string} and amount {string} remain",
   async function (this: CheckoutWorld, reference: string, amount: string) {
     const page = checkout(this);
@@ -194,6 +223,10 @@ Then("keyboard focus moves to the error summary", async function (this: Checkout
 
 Then("the browser sent one payment request", function (this: CheckoutWorld) {
   assert.equal(this.paymentRequestCount, 1);
+});
+
+When("the customer waits without taking action", async function (this: CheckoutWorld) {
+  await this.requirePage().waitForTimeout(500);
 });
 
 Then("a Japanese retry action is available", async function (this: CheckoutWorld) {
