@@ -34,6 +34,13 @@ visible result and the stored financial evidence behind it.
 | 7: Investigation | What happens when unusual customer and network actions are combined? | [Exploratory charter](milestones/m7-exploratory-testing/exploratory-charter.md), [session record](milestones/m7-exploratory-testing/session-record.md), and [quality report](milestones/m7-exploratory-testing/quality-report.md); DEF-006 found, fixed, and added to regression coverage |
 | 8: Performance | Can a declared workload finish without losing financial correctness? | [Scenario catalog](milestones/m8-performance-baseline/scenario-catalog.md), [implementation guide](milestones/m8-performance-baseline/implementation-guide.md), and [quality report](milestones/m8-performance-baseline/quality-report.md); two complete passing baselines plus an investigated timing-gate failure |
 
+The first post-MVP enhancement is also implemented locally. Detailed decline
+outcomes preserve one `DECLINED` state and one normalized reason across the API,
+database, idempotent replay, webhook projection, and English/Japanese checkout.
+See its [scenario catalog](enhancements/e1-detailed-decline-outcomes/scenario-catalog.md),
+[exploratory session](enhancements/e1-detailed-decline-outcomes/exploratory-session.md),
+and [quality report](enhancements/e1-detailed-decline-outcomes/quality-report.md).
+
 ## Test architecture
 
 Different test levels answer different questions:
@@ -59,9 +66,9 @@ risk to its evidence.
 
 ## Automated evidence at project close
 
-- 231 pytest tests with 96.74% branch-aware coverage.
-- 17 Node money tests.
-- 8 Cucumber scenarios with 60 passing steps.
+- 264 pytest tests with 96.57% branch-aware coverage.
+- 30 Node money and decline-guidance tests.
+- 10 Cucumber scenarios with 81 passing steps.
 - Chromium acceptance evidence for English, Japanese, responsive, keyboard,
   duplicate-submission, and uncertain-response recovery journeys.
 - Python 3.12 and Python 3.14 CI coverage.
@@ -84,6 +91,7 @@ tests are not presented as discovered bugs.
 | [DEF-004](../defects/DEF-004-mixed-currency-reconciliation-total.md): reconciliation combined currencies | High | Risk review and integration design | Resolved with separate currency positions |
 | [DEF-005](../defects/DEF-005-unlocalized-checkout-status.md): Japanese result exposed an English API status | Medium | Manual mobile review | Resolved with localized customer status text |
 | [DEF-006](../defects/DEF-006-uncertain-payment-lost-after-refresh.md): refresh removed uncertain-payment recovery | High | Structured exploratory testing | Resolved and added to the critical Cucumber journey |
+| [DEF-007](../defects/DEF-007-null-decline-reason-constraint.md): declined row accepted a null reason | High | Enhancement 1 database integration testing | Resolved with explicit null rejection and three invalid-combination regressions |
 
 Milestone 8 also recorded a CI timing observation. One authorization run failed
 its p99 guardrail while all financial checks passed. A focused confirmation and
@@ -100,6 +108,8 @@ Within the declared simulator boundary, the evidence supports these statements:
 - Payment, ledger, webhook, consumer, and settlement evidence can be reconciled.
 - Duplicate and out-of-order events do not apply an older effect twice.
 - English and Japanese customers receive selected safe checkout journeys.
+- Six normalized decline reasons retain zero financial effect and map to useful
+  English and Japanese guidance without exposing the submitted token.
 - An uncertain response remains honest and can be retried with the original key.
 - The declared performance workload completes without request loss or incorrect
   financial effects in two repeated passing baselines.
@@ -132,16 +142,13 @@ A reviewer can understand the project efficiently in this order:
    and financial verifier.
 7. Inspect the latest GitHub Actions checks and retained artifacts.
 
-## Next planned enhancement
+## Post-MVP enhancement status
 
-The [first enhancement catalog](enhancements/e1-detailed-decline-outcomes/scenario-catalog.md)
-translates selected public payment-platform test patterns into provider-neutral
-decline scenarios. Scenario sources and product-specific values remain outside
-this independent repository. The catalog is an approved plan, not passed
-evidence.
+Enhancement 1 translates selected public payment-platform test patterns into
+provider-neutral decline scenarios. It is implemented with local passing
+evidence; pull-request CI remains the final merge gate.
 
-The first work slice will use semantic synthetic decline outcomes such as
-insufficient funds and an expired payment method. Customer-action challenges,
-interrupted redirects, and backend status confirmation remain separate future
-review topics. The work will not copy live data or claim that this simulator
-tests an external production system.
+Future enhancement work will keep the same review order: approve the scenario
+catalog, implement a focused slice, execute automated and exploratory evidence,
+and close it with a plain-English quality report. Product-specific values and
+live data remain outside this independent repository.

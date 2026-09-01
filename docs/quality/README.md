@@ -52,10 +52,11 @@ path.
 
 | Enhancement | Quality focus | Scenario catalog | Closing report | Status |
 |---|---|---|---|---|
-| 1 | Detailed declined-payment outcomes | [Catalog](enhancements/e1-detailed-decline-outcomes/scenario-catalog.md) | Created only after implementation and execution | Approved plan |
+| 1 | Detailed declined-payment outcomes | [Catalog](enhancements/e1-detailed-decline-outcomes/scenario-catalog.md) and [exploratory session](enhancements/e1-detailed-decline-outcomes/exploratory-session.md) | [Report](enhancements/e1-detailed-decline-outcomes/quality-report.md) | Implementation complete; pull-request CI pending |
 
 An approved enhancement catalog records intended behavior, not passed evidence.
-Implementation and closing results remain separate review steps.
+The Enhancement 1 report records executed local evidence; its status becomes
+complete only after the pull-request CI gate passes.
 
 Future milestones and enhancements use the same
 [scenario catalog template](templates/scenario-catalog-template.md) and
