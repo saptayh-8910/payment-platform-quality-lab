@@ -34,7 +34,7 @@ visible result and the stored financial evidence behind it.
 | 7: Investigation | What happens when unusual customer and network actions are combined? | [Exploratory charter](milestones/m7-exploratory-testing/exploratory-charter.md), [session record](milestones/m7-exploratory-testing/session-record.md), and [quality report](milestones/m7-exploratory-testing/quality-report.md); DEF-006 found, fixed, and added to regression coverage |
 | 8: Performance | Can a declared workload finish without losing financial correctness? | [Scenario catalog](milestones/m8-performance-baseline/scenario-catalog.md), [implementation guide](milestones/m8-performance-baseline/implementation-guide.md), and [quality report](milestones/m8-performance-baseline/quality-report.md); two complete passing baselines plus an investigated timing-gate failure |
 
-The first post-MVP enhancement is also implemented locally. Detailed decline
+The first post-MVP enhancement is complete. Detailed decline
 outcomes preserve one `DECLINED` state and one normalized reason across the API,
 database, idempotent replay, webhook projection, and English/Japanese checkout.
 See its [scenario catalog](enhancements/e1-detailed-decline-outcomes/scenario-catalog.md),
@@ -145,8 +145,8 @@ A reviewer can understand the project efficiently in this order:
 ## Post-MVP enhancement status
 
 Enhancement 1 translates selected public payment-platform test patterns into
-provider-neutral decline scenarios. It is implemented with local passing
-evidence; pull-request CI remains the final merge gate.
+provider-neutral decline scenarios. It has passing local and pull-request CI
+evidence.
 
 Future enhancement work will keep the same review order: approve the scenario
 catalog, implement a focused slice, execute automated and exploratory evidence,

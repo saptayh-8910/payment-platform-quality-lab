@@ -8,8 +8,8 @@
 | Result | Proceed within the declared simulator boundary |
 | Backend commit | `0b84b29` |
 | Checkout and exploratory commit | `e73429f` |
-| Pull request | Pending |
-| CI run | Pending |
+| Pull request | [#17](https://github.com/saptayh-8910/payment-platform-quality-lab/pull/17) |
+| CI runs | [Functional and browser CI](https://github.com/saptayh-8910/payment-platform-quality-lab/actions/runs/33525008956) and [performance checkpoint](https://github.com/saptayh-8910/payment-platform-quality-lab/actions/runs/33525008979) |
 | Local execution date | 2026-09-02 |
 
 ## Executive summary
@@ -31,8 +31,7 @@ comparison as unknown. [DEF-007](../../../defects/DEF-007-null-decline-reason-co
 records the cause, correction, and regression evidence. The defect was fixed
 before this report.
 
-The recommendation is to proceed. CI evidence must still run on the pull
-request before merge.
+The recommendation is to proceed. All six pull-request checks passed.
 
 ## Situation
 
@@ -120,7 +119,7 @@ option.
 | Local Python | 3.14.7 |
 | Local Node | 24.12.0 |
 | Local Playwright | 1.62.1 |
-| Pull-request CI | Pending; required before merge |
+| Pull-request CI | Six checks passed: Python 3.12, Python 3.14, Chromium acceptance, performance selection, harness validation, and the performance checkpoint |
 
 Repeatable commands:
 
@@ -197,8 +196,8 @@ No exploratory defect was found.
 
 ## Release recommendation
 
-Proceed within the declared simulator boundary after the pull-request CI gate
-passes. The evidence supports the approved behavior: each decline has one safe
+Proceed within the declared simulator boundary. The pull-request CI gate passed,
+and the evidence supports the approved behavior: each decline has one safe
 reason, no financial effect, stable retry behavior, consistent webhook
 projection, and useful localized guidance.
 
