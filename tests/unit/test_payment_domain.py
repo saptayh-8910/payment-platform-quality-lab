@@ -4,6 +4,7 @@ import pytest
 
 from payment_quality_lab.domain.payment import (
     AuthorizationDecision,
+    DeclineReason,
     PaymentStatus,
     authorize,
 )
@@ -14,13 +15,45 @@ def test_approved_authorization_reserves_the_full_amount() -> None:
 
     assert result.status is PaymentStatus.AUTHORIZED
     assert result.authorized_amount == 2500
+    assert result.decline_reason is None
 
 
-def test_declined_authorization_has_no_authorized_amount() -> None:
-    result = authorize(2500, AuthorizationDecision.DECLINE)
+@pytest.mark.parametrize(
+    ("decision", "reason"),
+    [
+        (AuthorizationDecision.DECLINE, DeclineReason.UNKNOWN),
+        (
+            AuthorizationDecision.DECLINE_INSUFFICIENT_FUNDS,
+            DeclineReason.INSUFFICIENT_FUNDS,
+        ),
+        (
+            AuthorizationDecision.DECLINE_LIMIT_EXCEEDED,
+            DeclineReason.LIMIT_EXCEEDED,
+        ),
+        (
+            AuthorizationDecision.DECLINE_EXPIRED,
+            DeclineReason.EXPIRED_PAYMENT_METHOD,
+        ),
+        (
+            AuthorizationDecision.DECLINE_VERIFICATION,
+            DeclineReason.VERIFICATION_FAILED,
+        ),
+        (
+            AuthorizationDecision.DECLINE_INVALID,
+            DeclineReason.INVALID_PAYMENT_METHOD,
+        ),
+        (AuthorizationDecision.DECLINE_UNKNOWN, DeclineReason.UNKNOWN),
+    ],
+)
+def test_declined_authorization_maps_reason_without_authorized_amount(
+    decision: AuthorizationDecision,
+    reason: DeclineReason,
+) -> None:
+    result = authorize(2500, decision)
 
     assert result.status is PaymentStatus.DECLINED
     assert result.authorized_amount == 0
+    assert result.decline_reason is reason
 
 
 @pytest.mark.parametrize("amount", [0, -1, -10_000])

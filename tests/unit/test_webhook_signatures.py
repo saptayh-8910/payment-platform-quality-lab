@@ -30,6 +30,7 @@ def event_payload() -> dict[str, object]:
             "captured_amount": 2500,
             "created_at": "2026-08-18T03:59:00Z",
             "currency": "JPY",
+            "decline_reason": None,
             "id": "pay_test_webhook",
             "merchant_reference": "order-webhook-001",
             "refunded_amount": 0,
@@ -68,6 +69,7 @@ def test_valid_signature_and_payload_are_accepted() -> None:
     assert envelope.event_type is WebhookEventType.CAPTURED
     assert envelope.aggregate_version == 2
     assert envelope.payment.status == "CAPTURED"
+    assert envelope.payment.decline_reason is None
     assert envelope.payment.captured_amount == 2500
 
 
@@ -149,6 +151,8 @@ def test_empty_signing_secret_is_rejected() -> None:
         ("boolean_amount", "amount must be an integer"),
         ("missing_id", "id must be a non-empty string"),
         ("invalid_time", "created_at must be an ISO 8601 time"),
+        ("missing_decline_reason", "decline_reason is required"),
+        ("reason_for_capture", "snapshot is invalid"),
     ],
 )
 def test_invalid_payment_event_payload_is_rejected(
@@ -170,10 +174,33 @@ def test_invalid_payment_event_payload_is_rejected(
         payment["amount"] = True
     elif change == "missing_id":
         payload.pop("id")
+    elif change == "missing_decline_reason":
+        payment.pop("decline_reason")
+    elif change == "reason_for_capture":
+        payment["decline_reason"] = "unknown"
     else:
         payload["created_at"] = "not-a-time"
 
     with pytest.raises(InvalidWebhookPayloadError, match=expected_message):
+        parse_webhook_payload(encode(payload))
+
+
+def test_declined_snapshot_requires_a_recognized_reason() -> None:
+    payload = event_payload()
+    payment = payload["payment"]
+    assert isinstance(payment, dict)
+    payload["type"] = "payment.declined"
+    payment["status"] = "DECLINED"
+    payment["authorized_amount"] = 0
+    payment["captured_amount"] = 0
+    payment["decline_reason"] = "insufficient_funds"
+
+    envelope = parse_webhook_payload(encode(payload))
+
+    assert envelope.payment.decline_reason == "insufficient_funds"
+
+    payment["decline_reason"] = None
+    with pytest.raises(InvalidWebhookPayloadError, match="snapshot is invalid"):
         parse_webhook_payload(encode(payload))
 
 

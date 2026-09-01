@@ -39,6 +39,7 @@ def seed_profile(database_url: str, profile: str) -> None:
                 amount=expected.amount,
                 currency=expected.currency,
                 status="AUTHORIZED" if expected.approved else "DECLINED",
+                decline_reason=None if expected.approved else "unknown",
                 authorized_amount=approved_amount,
                 captured_amount=0,
                 refunded_amount=0,

@@ -15,6 +15,7 @@ from sqlalchemy.orm.exc import StaleDataError
 from payment_quality_lab.domain.payment import (
     AuthorizationDecision,
     Currency,
+    DeclineReason,
     PaymentOperation,
     PaymentState,
     PaymentStatus,
@@ -74,6 +75,7 @@ class PaymentSnapshot:
     amount: int
     currency: str
     status: str
+    decline_reason: str | None
     authorized_amount: int
     captured_amount: int
     refunded_amount: int
@@ -90,6 +92,7 @@ class PaymentSnapshot:
             amount=payment.amount,
             currency=payment.currency,
             status=payment.status,
+            decline_reason=payment.decline_reason,
             authorized_amount=payment.authorized_amount,
             captured_amount=payment.captured_amount,
             refunded_amount=payment.refunded_amount,
@@ -107,6 +110,7 @@ class PaymentSnapshot:
                 "captured_amount": self.captured_amount,
                 "created_at": self.created_at.isoformat(),
                 "currency": self.currency,
+                "decline_reason": self.decline_reason,
                 "id": self.id,
                 "merchant_reference": self.merchant_reference,
                 "refunded_amount": self.refunded_amount,
@@ -128,6 +132,11 @@ class PaymentSnapshot:
             amount=int(values["amount"]),
             currency=str(values["currency"]),
             status=str(values["status"]),
+            decline_reason=(
+                DeclineReason(str(values["decline_reason"])).value
+                if values.get("decline_reason") is not None
+                else None
+            ),
             authorized_amount=int(values["authorized_amount"]),
             captured_amount=int(values["captured_amount"]),
             refunded_amount=int(values["refunded_amount"]),
@@ -328,6 +337,9 @@ def _execute_claimed_authorization(
         amount=command.amount,
         currency=command.currency.value,
         status=result.status.value,
+        decline_reason=(
+            result.decline_reason.value if result.decline_reason is not None else None
+        ),
         authorized_amount=result.authorized_amount,
         captured_amount=0,
         refunded_amount=0,
