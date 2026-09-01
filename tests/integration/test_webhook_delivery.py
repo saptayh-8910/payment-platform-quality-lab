@@ -201,6 +201,42 @@ def test_decline_and_cancellation_create_correct_events(
     ]
 
 
+def test_detailed_decline_is_delivered_and_projected_with_same_reason(
+    factory: sessionmaker[Session], command: AuthorizationCommand
+) -> None:
+    declined = AuthorizationCommand(
+        merchant_reference="declined-reason-projection",
+        amount=command.amount,
+        currency=command.currency,
+        payment_method_token=AuthorizationDecision.DECLINE_INSUFFICIENT_FUNDS,
+    )
+    payment_id = authorize_once(
+        factory,
+        declined,
+        key="webhook-detailed-decline-key",
+    )
+    with factory() as session:
+        event = get_webhook_events(session)[0]
+        payload = json.loads(event.payload)
+        assert payload["payment"]["decline_reason"] == "insufficient_funds"
+        assert declined.payment_method_token.value not in event.payload
+
+        result = dispatch_webhook(
+            session,
+            event_id=event.id,
+            secret=SECRET,
+            receiver=consumer_receiver(factory),
+            now=event_now(event),
+        )
+        projection = get_merchant_projection(session, payment_id)
+
+    assert result.outcome == "SUCCESS"
+    assert projection is not None
+    assert projection.status == "DECLINED"
+    assert projection.decline_reason == "insufficient_funds"
+    assert projection.authorized_amount == 0
+
+
 def test_rejected_operation_and_idempotent_replay_create_no_event(
     factory: sessionmaker[Session], command: AuthorizationCommand
 ) -> None:

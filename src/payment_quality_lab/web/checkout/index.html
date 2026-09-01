@@ -79,7 +79,33 @@
               <label for="outcome" data-i18n="outcome">Test outcome</label>
               <select id="outcome" name="outcome" aria-describedby="outcome-help">
                 <option value="tok_approved" data-i18n="approve">Approve</option>
-                <option value="tok_declined" data-i18n="decline">Decline</option>
+                <option
+                  value="tok_declined_insufficient_funds"
+                  data-i18n="declineInsufficientFunds"
+                >
+                  Decline — insufficient funds
+                </option>
+                <option
+                  value="tok_declined_limit_exceeded"
+                  data-i18n="declineLimitExceeded"
+                >
+                  Decline — limit exceeded
+                </option>
+                <option value="tok_declined_expired" data-i18n="declineExpired">
+                  Decline — expired payment method
+                </option>
+                <option
+                  value="tok_declined_verification"
+                  data-i18n="declineVerification"
+                >
+                  Decline — verification failed
+                </option>
+                <option value="tok_declined_invalid" data-i18n="declineInvalid">
+                  Decline — invalid payment method
+                </option>
+                <option value="tok_declined_unknown" data-i18n="declineUnknown">
+                  Decline — other reason
+                </option>
               </select>
               <p id="outcome-help" class="help" data-i18n="outcomeHelp">
                 This controls the simulator. It is not a payment method.

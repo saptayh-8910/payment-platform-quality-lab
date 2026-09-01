@@ -60,15 +60,16 @@ Test tooling:
 
 ## Current status
 
-The service implements deterministic authorization and decline behavior plus
-full capture, pre-capture cancellation, and partial or full refunds. Every
+The service implements deterministic authorization and six detailed,
+provider-neutral decline outcomes plus full capture, pre-capture cancellation,
+and partial or full refunds. Every
 accepted lifecycle operation records one immutable ledger entry, increments the
 payment version once, and commits its idempotency record in the same transaction.
 Invalid transitions and over-refunds leave payment and ledger state unchanged.
 
-The current automated baseline contains 231 pytest tests with 96.74%
-branch-aware coverage, 17 Node money tests, and 8 Cucumber scenarios with 60
-steps. GitHub Actions runs the Python suite on Python 3.12 and 3.14 and runs the
+The current automated baseline contains 264 pytest tests with 96.57%
+branch-aware coverage, 30 Node tests, and 10 Cucumber scenarios with 81 steps.
+GitHub Actions runs the Python suite on Python 3.12 and 3.14 and runs the
 complete browser gate in Chromium.
 
 Concurrent equivalent requests now claim one idempotency key before applying a
@@ -92,18 +93,21 @@ totals separate and expose expected and observed values without including test
 tokens or signing secrets.
 
 The browser checkout now accepts synthetic JPY and USD amounts in English or
-Japanese. It converts the original amount string to integer minor units, blocks
-normal repeated submission, preserves one idempotency key while a result is
-uncertain, and restores uncertain or completed results after refresh. During an
-uncertain result, tab-scoped session storage holds the active key and a minimal
-synthetic retry packet: reference, integer amount, currency, and an approval or
-decline choice. It does not store the raw API token. A final result clears that
-packet and keeps only the last payment ID needed for refresh.
+Japanese. It provides six detailed decline controls and maps every normalized
+reason to owner-reviewed guidance in both languages. It converts the original
+amount string to integer minor units, blocks normal repeated submission,
+preserves one idempotency key while a result is uncertain, and restores
+uncertain or completed results after refresh. During an uncertain result,
+tab-scoped session storage holds the active key and a minimal synthetic retry
+packet: reference, integer amount, currency, and a safe outcome label. It does
+not store the raw API token. A final result clears that packet and keeps only
+the last payment ID needed for refresh.
 
-Eight Gherkin acceptance scenarios run through Cucumber-JS and TypeScript
+Ten Gherkin acceptance scenarios run through Cucumber-JS and TypeScript
 Playwright. They cover approval, decline, localized validation, exact currency
 display, Japanese input, repeated submission, post-commit timeout recovery
-across refresh, and a keyboard journey at a 390 by 844 responsive viewport.
+across refresh, detailed decline guidance in both languages, no automatic
+decline resubmission, and a keyboard journey at a 390 by 844 responsive viewport.
 Failed scenarios retain a screenshot and Playwright trace; Cucumber also
 produces HTML, JSON, and JUnit reports.
 
@@ -135,6 +139,13 @@ run, retained the evidence, and later passed a focused confirmation and a second
 complete baseline without changing the thresholds. The
 [Milestone 8 quality report](docs/quality/milestones/m8-performance-baseline/quality-report.md)
 records the results, variation, limitations, and final recommendation.
+
+Enhancement 1 adds six detailed declined-payment outcomes while preserving one
+final `DECLINED` state. The normalized reason remains consistent across payment
+retrieval, idempotent replay, webhook delivery, and the merchant projection.
+Every decline keeps all financial balances at zero and creates no ledger entry.
+The [Enhancement 1 quality report](docs/quality/enhancements/e1-detailed-decline-outcomes/quality-report.md)
+records the automated, exploratory, privacy, defect, and limitation evidence.
 
 ## Quick start
 
@@ -230,9 +241,17 @@ curl --request POST http://127.0.0.1:8000/payments \
 Only deterministic synthetic tokens are accepted:
 
 - `tok_approved` creates an authorized payment and authorization ledger entry.
-- `tok_declined` creates a declined payment without a financial ledger effect.
+- `tok_declined_insufficient_funds` stores `insufficient_funds`.
+- `tok_declined_limit_exceeded` stores `limit_exceeded`.
+- `tok_declined_expired` stores `expired_payment_method`.
+- `tok_declined_verification` stores `verification_failed`.
+- `tok_declined_invalid` stores `invalid_payment_method`.
+- `tok_declined_unknown` stores the safe `unknown` fallback.
+- Legacy `tok_declined` remains an API alias for `unknown`.
 
-These are simulator controls, not real payment credentials.
+Every decline creates no financial ledger effect. These strings are simulator
+controls, not real payment credentials, and are not retained in payment,
+webhook, browser-storage, or report evidence.
 
 After authorization, use the returned payment ID for lifecycle operations:
 
@@ -268,6 +287,8 @@ See:
 - [Milestone 8 performance quality report](docs/quality/milestones/m8-performance-baseline/quality-report.md)
 - [Milestone 8 sanitized example summary](docs/quality/milestones/m8-performance-baseline/example-summary.json)
 - [Enhancement 1 detailed decline scenario catalog](docs/quality/enhancements/e1-detailed-decline-outcomes/scenario-catalog.md)
+- [Enhancement 1 exploratory session](docs/quality/enhancements/e1-detailed-decline-outcomes/exploratory-session.md)
+- [Enhancement 1 quality report](docs/quality/enhancements/e1-detailed-decline-outcomes/quality-report.md)
 - [Defect reports](docs/defects/)
 
 ## License

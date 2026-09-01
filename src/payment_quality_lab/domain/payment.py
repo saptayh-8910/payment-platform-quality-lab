@@ -27,6 +27,36 @@ class AuthorizationDecision(StrEnum):
 
     APPROVE = "tok_approved"
     DECLINE = "tok_declined"
+    DECLINE_INSUFFICIENT_FUNDS = "tok_declined_insufficient_funds"
+    DECLINE_LIMIT_EXCEEDED = "tok_declined_limit_exceeded"
+    DECLINE_EXPIRED = "tok_declined_expired"
+    DECLINE_VERIFICATION = "tok_declined_verification"
+    DECLINE_INVALID = "tok_declined_invalid"
+    DECLINE_UNKNOWN = "tok_declined_unknown"
+
+
+class DeclineReason(StrEnum):
+    """Stable provider-neutral explanations for declined authorizations."""
+
+    INSUFFICIENT_FUNDS = "insufficient_funds"
+    LIMIT_EXCEEDED = "limit_exceeded"
+    EXPIRED_PAYMENT_METHOD = "expired_payment_method"
+    VERIFICATION_FAILED = "verification_failed"
+    INVALID_PAYMENT_METHOD = "invalid_payment_method"
+    UNKNOWN = "unknown"
+
+
+DECLINE_REASON_BY_DECISION: dict[AuthorizationDecision, DeclineReason] = {
+    AuthorizationDecision.DECLINE: DeclineReason.UNKNOWN,
+    AuthorizationDecision.DECLINE_INSUFFICIENT_FUNDS: (
+        DeclineReason.INSUFFICIENT_FUNDS
+    ),
+    AuthorizationDecision.DECLINE_LIMIT_EXCEEDED: DeclineReason.LIMIT_EXCEEDED,
+    AuthorizationDecision.DECLINE_EXPIRED: DeclineReason.EXPIRED_PAYMENT_METHOD,
+    AuthorizationDecision.DECLINE_VERIFICATION: DeclineReason.VERIFICATION_FAILED,
+    AuthorizationDecision.DECLINE_INVALID: DeclineReason.INVALID_PAYMENT_METHOD,
+    AuthorizationDecision.DECLINE_UNKNOWN: DeclineReason.UNKNOWN,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +65,7 @@ class AuthorizationResult:
 
     status: PaymentStatus
     authorized_amount: int
+    decline_reason: DeclineReason | None
 
 
 class PaymentOperation(StrEnum):
@@ -105,11 +136,13 @@ def authorize(amount: int, decision: AuthorizationDecision) -> AuthorizationResu
         return AuthorizationResult(
             status=PaymentStatus.AUTHORIZED,
             authorized_amount=amount,
+            decline_reason=None,
         )
 
     return AuthorizationResult(
         status=PaymentStatus.DECLINED,
         authorized_amount=0,
+        decline_reason=DECLINE_REASON_BY_DECISION[decision],
     )
 
 

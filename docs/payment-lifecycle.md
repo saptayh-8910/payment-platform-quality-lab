@@ -20,6 +20,26 @@ stateDiagram-v2
 
 Partial capture and authorization expiry are outside the current scope.
 
+## Decline reasons
+
+`DECLINED` remains one final lifecycle state. The payment stores one separate
+provider-neutral reason so investigation and customer guidance do not require a
+larger state machine:
+
+| Reason | Customer action |
+|---|---|
+| `insufficient_funds` | Check available funds or try another payment method |
+| `limit_exceeded` | Use a permitted amount or another payment method |
+| `expired_payment_method` | Update the payment method or use another one |
+| `verification_failed` | Check the submitted information and try again |
+| `invalid_payment_method` | Check or replace the payment method |
+| `unknown` | Try again later or use another payment method |
+
+A declined payment must have one recognized reason. An authorized or later
+lifecycle state must have no decline reason. The fresh database schema enforces
+that relationship. The legacy `tok_declined` input remains an alias for
+`unknown`, while the checkout uses the six detailed controls.
+
 ## API operations
 
 | Operation | Endpoint | Request body | Accepted starting state |

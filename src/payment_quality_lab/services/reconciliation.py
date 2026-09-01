@@ -318,6 +318,7 @@ def _projection_status(
         or projection.amount != payment.amount
         or projection.currency != payment.currency
         or projection.status != payment.status
+        or projection.decline_reason != payment.decline_reason
         or projection.authorized_amount != payment.authorized_amount
         or projection.captured_amount != payment.captured_amount
         or projection.refunded_amount != payment.refunded_amount

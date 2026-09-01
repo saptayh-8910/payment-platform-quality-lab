@@ -36,6 +36,14 @@ class PaymentRecord(Base):
             "refunded_amount >= 0 AND refunded_amount <= captured_amount",
             name="ck_payment_refunded_within_captured",
         ),
+        CheckConstraint(
+            "(status = 'DECLINED' AND decline_reason IS NOT NULL AND "
+            "decline_reason IN ("
+            "'insufficient_funds', 'limit_exceeded', 'expired_payment_method', "
+            "'verification_failed', 'invalid_payment_method', 'unknown')) OR "
+            "(status <> 'DECLINED' AND decline_reason IS NULL)",
+            name="ck_payment_decline_reason_matches_status",
+        ),
         CheckConstraint("version >= 1", name="ck_payment_version_positive"),
     )
 
@@ -44,6 +52,7 @@ class PaymentRecord(Base):
     amount: Mapped[int] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(3))
     status: Mapped[str] = mapped_column(String(32), index=True)
+    decline_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
     authorized_amount: Mapped[int] = mapped_column(Integer, default=0)
     captured_amount: Mapped[int] = mapped_column(Integer, default=0)
     refunded_amount: Mapped[int] = mapped_column(Integer, default=0)
@@ -183,6 +192,7 @@ class MerchantPaymentProjectionRecord(Base):
     amount: Mapped[int] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(3))
     status: Mapped[str] = mapped_column(String(32), index=True)
+    decline_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
     authorized_amount: Mapped[int] = mapped_column(Integer)
     captured_amount: Mapped[int] = mapped_column(Integer)
     refunded_amount: Mapped[int] = mapped_column(Integer)

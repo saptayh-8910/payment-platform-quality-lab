@@ -14,7 +14,12 @@ from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from payment_quality_lab.domain.payment import Currency, PaymentState, PaymentStatus
+from payment_quality_lab.domain.payment import (
+    Currency,
+    DeclineReason,
+    PaymentState,
+    PaymentStatus,
+)
 from payment_quality_lab.persistence.models import (
     MerchantPaymentProjectionRecord,
     PaymentRecord,
@@ -115,6 +120,7 @@ class WebhookPaymentSnapshot:
     amount: int
     currency: str
     status: str
+    decline_reason: str | None
     authorized_amount: int
     captured_amount: int
     refunded_amount: int
@@ -180,6 +186,7 @@ def _payment_payload(payment: PaymentRecord) -> dict[str, Any]:
         "captured_amount": payment.captured_amount,
         "created_at": _format_datetime(payment.created_at),
         "currency": payment.currency,
+        "decline_reason": payment.decline_reason,
         "id": payment.id,
         "merchant_reference": payment.merchant_reference,
         "refunded_amount": payment.refunded_amount,
@@ -293,6 +300,20 @@ def _required_datetime(values: dict[str, Any], name: str) -> datetime:
         raise InvalidWebhookPayloadError(f"{name} must be an ISO 8601 time") from error
 
 
+def _decline_reason(values: dict[str, Any]) -> DeclineReason | None:
+    if "decline_reason" not in values:
+        raise InvalidWebhookPayloadError("decline_reason is required")
+    value = values["decline_reason"]
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise InvalidWebhookPayloadError("decline_reason must be a string or null")
+    try:
+        return DeclineReason(value)
+    except ValueError as error:
+        raise InvalidWebhookPayloadError("decline_reason is unsupported") from error
+
+
 def parse_webhook_payload(payload: bytes) -> WebhookEnvelope:
     """Validate the signed JSON body and financial snapshot invariants."""
     try:
@@ -318,6 +339,7 @@ def parse_webhook_payload(payload: bytes) -> WebhookEnvelope:
     version = _required_integer(payment_values, "version")
     currency_value = _required_string(payment_values, "currency")
     status_value = _required_string(payment_values, "status")
+    decline_reason = _decline_reason(payment_values)
 
     if amount <= 0 or authorized_amount > amount:
         raise InvalidWebhookPayloadError("Payment amounts are inconsistent")
@@ -326,6 +348,8 @@ def parse_webhook_payload(payload: bytes) -> WebhookEnvelope:
     try:
         Currency(currency_value)
         status = PaymentStatus(status_value)
+        if (status is PaymentStatus.DECLINED) != (decline_reason is not None):
+            raise ValueError("Decline reason does not match payment status")
         PaymentState(
             status=status,
             authorized_amount=authorized_amount,
@@ -346,6 +370,9 @@ def parse_webhook_payload(payload: bytes) -> WebhookEnvelope:
             amount=amount,
             currency=currency_value,
             status=status_value,
+            decline_reason=(
+                decline_reason.value if decline_reason is not None else None
+            ),
             authorized_amount=authorized_amount,
             captured_amount=captured_amount,
             refunded_amount=refunded_amount,
@@ -365,6 +392,7 @@ def _projection_matches(
         and projection.amount == payment.amount
         and projection.currency == payment.currency
         and projection.status == payment.status
+        and projection.decline_reason == payment.decline_reason
         and projection.authorized_amount == payment.authorized_amount
         and projection.captured_amount == payment.captured_amount
         and projection.refunded_amount == payment.refunded_amount
@@ -382,6 +410,7 @@ def _apply_projection(
     projection.amount = payment.amount
     projection.currency = payment.currency
     projection.status = payment.status
+    projection.decline_reason = payment.decline_reason
     projection.authorized_amount = payment.authorized_amount
     projection.captured_amount = payment.captured_amount
     projection.refunded_amount = payment.refunded_amount
@@ -429,6 +458,7 @@ def consume_webhook(
             amount=envelope.payment.amount,
             currency=envelope.payment.currency,
             status=envelope.payment.status,
+            decline_reason=envelope.payment.decline_reason,
             authorized_amount=envelope.payment.authorized_amount,
             captured_amount=envelope.payment.captured_amount,
             refunded_amount=envelope.payment.refunded_amount,

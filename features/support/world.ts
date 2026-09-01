@@ -3,7 +3,15 @@ import type { BrowserContext, Page } from "playwright";
 
 export type Language = "en" | "ja";
 export type Currency = "JPY" | "USD";
-export type Outcome = "Approve" | "Decline";
+export type Outcome =
+  | "Approve"
+  | "Decline"
+  | "InsufficientFunds"
+  | "LimitExceeded"
+  | "Expired"
+  | "VerificationFailed"
+  | "Invalid"
+  | "Unknown";
 
 export interface PaymentResponse {
   id: string;
@@ -11,6 +19,7 @@ export interface PaymentResponse {
   amount: number;
   currency: Currency;
   status: "AUTHORIZED" | "DECLINED";
+  decline_reason: string | null;
 }
 
 export class CheckoutWorld extends World {

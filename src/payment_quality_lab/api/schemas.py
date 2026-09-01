@@ -9,6 +9,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 from payment_quality_lab.domain.payment import (
     AuthorizationDecision,
     Currency,
+    DeclineReason,
     PaymentStatus,
 )
 from payment_quality_lab.persistence.models import (
@@ -65,6 +66,7 @@ class PaymentResponse(BaseModel):
     amount: int
     currency: Currency
     status: PaymentStatus
+    decline_reason: DeclineReason | None
     authorized_amount: int
     captured_amount: int
     refunded_amount: int
@@ -81,6 +83,11 @@ class PaymentResponse(BaseModel):
             amount=payment.amount,
             currency=Currency(payment.currency),
             status=PaymentStatus(payment.status),
+            decline_reason=(
+                DeclineReason(payment.decline_reason)
+                if payment.decline_reason is not None
+                else None
+            ),
             authorized_amount=payment.authorized_amount,
             captured_amount=payment.captured_amount,
             refunded_amount=payment.refunded_amount,
@@ -223,6 +230,7 @@ class MerchantProjectionResponse(BaseModel):
     amount: int
     currency: Currency
     status: PaymentStatus
+    decline_reason: DeclineReason | None
     authorized_amount: int
     captured_amount: int
     refunded_amount: int
@@ -241,6 +249,11 @@ class MerchantProjectionResponse(BaseModel):
             amount=projection.amount,
             currency=Currency(projection.currency),
             status=PaymentStatus(projection.status),
+            decline_reason=(
+                DeclineReason(projection.decline_reason)
+                if projection.decline_reason is not None
+                else None
+            ),
             authorized_amount=projection.authorized_amount,
             captured_amount=projection.captured_amount,
             refunded_amount=projection.refunded_amount,

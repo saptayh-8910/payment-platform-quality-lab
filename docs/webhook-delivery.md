@@ -37,9 +37,13 @@ Each event contains:
 - a unique event ID;
 - event type and UTC creation time;
 - payment ID and aggregate version;
-- full payment status and integer minor-unit totals.
+- full payment status and integer minor-unit totals; and
+- the normalized decline reason for a declined payment, or `null` for every
+  non-declined payment.
 
-The payload does not contain the synthetic payment token or signing secret.
+The payload does not contain the submitted synthetic payment token or signing
+secret. The consumer validates that a declined snapshot has one recognized
+reason and that a non-declined snapshot has no reason.
 
 ## Signature
 
@@ -84,6 +88,8 @@ payment projection in one transaction.
 - A higher version can be applied when an earlier version is missing because the
   event contains a full snapshot. The version gap remains visible.
 - Conflicting content for the same payment version is rejected.
+- The projection preserves the normalized decline reason so the payment and
+  merchant view can be compared without retaining the submitted token.
 
 Webhook consumption never changes the source payment or financial ledger.
 

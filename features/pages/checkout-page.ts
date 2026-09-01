@@ -2,6 +2,17 @@ import type { Page } from "playwright";
 
 import type { Currency, Language, Outcome } from "../support/world.ts";
 
+const tokenByOutcome: Record<Outcome, string> = {
+  Approve: "tok_approved",
+  Decline: "tok_declined_unknown",
+  InsufficientFunds: "tok_declined_insufficient_funds",
+  LimitExceeded: "tok_declined_limit_exceeded",
+  Expired: "tok_declined_expired",
+  VerificationFailed: "tok_declined_verification",
+  Invalid: "tok_declined_invalid",
+  Unknown: "tok_declined_unknown",
+};
+
 export class CheckoutPage {
   private readonly page: Page;
   private readonly baseUrl: string;
@@ -24,9 +35,7 @@ export class CheckoutPage {
     await this.page.locator("#merchant-reference").fill(reference);
     await this.page.locator("#amount").fill(displayAmount);
     await this.page.locator("#currency").selectOption(currency);
-    await this.page
-      .locator("#outcome")
-      .selectOption(outcome === "Approve" ? "tok_approved" : "tok_declined");
+    await this.page.locator("#outcome").selectOption(tokenByOutcome[outcome]);
   }
 
   async submit(): Promise<void> {
