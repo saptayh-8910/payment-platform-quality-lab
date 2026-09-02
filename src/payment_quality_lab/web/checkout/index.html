@@ -9,15 +9,26 @@
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="/checkout" data-i18n="brand">Payment Quality Lab</a>
-      <nav aria-label="Language" data-i18n-aria-label="languageNavigation">
+      <a class="brand" href="/checkout" aria-label="Payment Quality Lab">
+        <span class="brand-mark" aria-hidden="true">PQ</span>
+        <span data-i18n="brand">Payment Quality Lab</span>
+      </a>
+      <nav class="language-switcher" aria-label="Language" data-i18n-aria-label="languageNavigation">
         <button type="button" class="language-button" data-language="en">English</button>
         <button type="button" class="language-button" data-language="ja">日本語</button>
       </nav>
     </header>
 
+    <div class="environment-banner" role="note">
+      <div class="environment-banner__inner">
+        <strong data-i18n="environmentLabel">Test environment</strong>
+        <span aria-hidden="true">·</span>
+        <span data-i18n="environmentWarning">Do not enter real payment information.</span>
+      </div>
+    </div>
+
     <main class="page-shell">
-      <section class="intro" aria-labelledby="page-title">
+      <section class="page-intro" aria-labelledby="page-title">
         <p class="eyebrow" data-i18n="eyebrow">Privacy-safe simulator</p>
         <h1 id="page-title" data-i18n="pageTitle">Payment test</h1>
         <p data-i18n="introduction">
@@ -25,129 +36,185 @@
         </p>
       </section>
 
-      <section class="card" id="checkout-panel" aria-labelledby="form-title">
-        <h2 id="form-title" data-i18n="formTitle">Test details</h2>
+      <form id="checkout-form" class="checkout-layout" novalidate>
+        <aside class="simulator-panel" aria-labelledby="form-title" data-region="simulator">
+          <details id="simulator-disclosure" open>
+            <summary>
+              <span class="summary-heading" id="form-title" role="heading" aria-level="2" data-i18n="formTitle">
+                Simulator controls
+              </span>
+              <span class="summary-toggle" aria-hidden="true"></span>
+            </summary>
 
-        <div id="error-summary" class="message message-error" role="alert" tabindex="-1" hidden>
-          <h3 data-i18n="errorTitle">Check the following fields</h3>
-          <ul id="error-list"></ul>
-        </div>
-
-        <form id="checkout-form" novalidate>
-          <div class="field">
-            <label for="merchant-reference" data-i18n="merchantReference">Order reference</label>
-            <input
-              id="merchant-reference"
-              name="merchantReference"
-              type="text"
-              maxlength="64"
-              autocomplete="off"
-              aria-describedby="merchant-reference-help merchant-reference-error"
-            />
-            <p id="merchant-reference-help" class="help" data-i18n="merchantReferenceHelp">
-              Use a synthetic reference only.
-            </p>
-            <p id="merchant-reference-error" class="field-error" hidden></p>
-          </div>
-
-          <div class="field">
-            <label for="amount" data-i18n="amount">Amount</label>
-            <input
-              id="amount"
-              name="amount"
-              type="text"
-              inputmode="decimal"
-              autocomplete="off"
-              aria-describedby="amount-help amount-error"
-            />
-            <p id="amount-help" class="help" data-i18n="amountHelp">
-              Enter a whole JPY amount or up to two decimal places for USD.
-            </p>
-            <p id="amount-error" class="field-error" hidden></p>
-          </div>
-
-          <div class="field-grid">
-            <div class="field">
-              <label for="currency" data-i18n="currency">Currency</label>
-              <select id="currency" name="currency">
-                <option value="JPY">JPY</option>
-                <option value="USD">USD</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="outcome" data-i18n="outcome">Test outcome</label>
-              <select id="outcome" name="outcome" aria-describedby="outcome-help">
-                <option value="tok_approved" data-i18n="approve">Approve</option>
-                <option
-                  value="tok_declined_insufficient_funds"
-                  data-i18n="declineInsufficientFunds"
-                >
-                  Decline — insufficient funds
-                </option>
-                <option
-                  value="tok_declined_limit_exceeded"
-                  data-i18n="declineLimitExceeded"
-                >
-                  Decline — limit exceeded
-                </option>
-                <option value="tok_declined_expired" data-i18n="declineExpired">
-                  Decline — expired payment method
-                </option>
-                <option
-                  value="tok_declined_verification"
-                  data-i18n="declineVerification"
-                >
-                  Decline — verification failed
-                </option>
-                <option value="tok_declined_invalid" data-i18n="declineInvalid">
-                  Decline — invalid payment method
-                </option>
-                <option value="tok_declined_unknown" data-i18n="declineUnknown">
-                  Decline — other reason
-                </option>
-              </select>
-              <p id="outcome-help" class="help" data-i18n="outcomeHelp">
-                This controls the simulator. It is not a payment method.
+            <div class="simulator-content">
+              <p class="panel-description" data-i18n="simulatorExplanation">
+                These settings control the test scenario. They are not customer payment choices.
               </p>
+
+              <div id="error-summary" class="message message-error" role="alert" tabindex="-1" hidden>
+                <h3 data-i18n="errorTitle">Check the following fields</h3>
+                <ul id="error-list"></ul>
+              </div>
+
+              <fieldset id="simulator-fields">
+                <legend class="visually-hidden" data-i18n="formTitle">Simulator controls</legend>
+
+                <div class="field">
+                  <label for="merchant-reference" data-i18n="merchantReference">Order reference</label>
+                  <input
+                    id="merchant-reference"
+                    name="merchantReference"
+                    type="text"
+                    maxlength="64"
+                    autocomplete="off"
+                    aria-describedby="merchant-reference-help merchant-reference-error"
+                  />
+                  <p id="merchant-reference-help" class="help" data-i18n="merchantReferenceHelp">
+                    Use a synthetic reference only.
+                  </p>
+                  <p id="merchant-reference-error" class="field-error" hidden></p>
+                </div>
+
+                <div class="field">
+                  <label for="amount" data-i18n="amount">Amount</label>
+                  <input
+                    id="amount"
+                    name="amount"
+                    type="text"
+                    inputmode="decimal"
+                    autocomplete="off"
+                    aria-describedby="amount-help amount-error"
+                  />
+                  <p id="amount-help" class="help" data-i18n="amountHelp">
+                    Enter a whole JPY amount or up to two decimal places for USD.
+                  </p>
+                  <p id="amount-error" class="field-error" hidden></p>
+                </div>
+
+                <div class="field-grid">
+                  <div class="field">
+                    <label for="currency" data-i18n="currency">Currency</label>
+                    <select id="currency" name="currency">
+                      <option value="JPY">JPY</option>
+                      <option value="USD">USD</option>
+                    </select>
+                  </div>
+
+                  <div class="field">
+                    <label for="outcome" data-i18n="outcome">Test outcome</label>
+                    <select id="outcome" name="outcome" aria-describedby="outcome-help">
+                      <option value="tok_approved" data-i18n="approve">Approve</option>
+                      <option
+                        value="tok_declined_insufficient_funds"
+                        data-i18n="declineInsufficientFunds"
+                      >
+                        Decline — insufficient funds
+                      </option>
+                      <option
+                        value="tok_declined_limit_exceeded"
+                        data-i18n="declineLimitExceeded"
+                      >
+                        Decline — limit exceeded
+                      </option>
+                      <option value="tok_declined_expired" data-i18n="declineExpired">
+                        Decline — expired payment method
+                      </option>
+                      <option
+                        value="tok_declined_verification"
+                        data-i18n="declineVerification"
+                      >
+                        Decline — verification failed
+                      </option>
+                      <option value="tok_declined_invalid" data-i18n="declineInvalid">
+                        Decline — invalid payment method
+                      </option>
+                      <option value="tok_declined_unknown" data-i18n="declineUnknown">
+                        Decline — other reason
+                      </option>
+                    </select>
+                    <p id="outcome-help" class="help" data-i18n="outcomeHelp">
+                      This controls the simulator. It is not a payment method.
+                    </p>
+                  </div>
+                </div>
+              </fieldset>
             </div>
+          </details>
+        </aside>
+
+        <section class="checkout-card" aria-labelledby="checkout-title" data-region="checkout">
+          <div class="checkout-heading">
+            <h2 id="checkout-title" data-i18n="checkoutTitle">Test checkout</h2>
+            <span class="test-chip" data-i18n="testOnly">Test only</span>
           </div>
 
-          <button id="submit-payment" class="primary-action" type="submit">
-            <span data-i18n="submit">Run test payment</span>
-            <span class="button-progress" data-progress hidden aria-hidden="true"></span>
-          </button>
-        </form>
-      </section>
+          <section class="order-summary" aria-labelledby="order-summary-title">
+            <div class="section-heading">
+              <h3 id="order-summary-title" data-i18n="orderSummary">Order summary</h3>
+              <span id="summary-currency" class="currency-label">JPY</span>
+            </div>
+            <dl>
+              <div>
+                <dt data-i18n="merchantReference">Order reference</dt>
+                <dd id="summary-reference" data-empty="true">—</dd>
+              </div>
+              <div class="order-total">
+                <dt data-i18n="total">Total</dt>
+                <dd id="summary-amount">—</dd>
+              </div>
+            </dl>
+          </section>
 
-      <section
-        class="card result-card"
-        id="result-panel"
-        aria-labelledby="result-title"
-        tabindex="-1"
-        hidden
-      >
-        <div id="result-status" class="result-status" aria-hidden="true"></div>
-        <p class="eyebrow" data-i18n="resultLabel">Result</p>
-        <h2 id="result-title"></h2>
-        <p id="result-guidance"></p>
+          <div id="payment-action-panel" class="payment-action-panel">
+            <section class="payment-method" aria-labelledby="payment-method-title">
+              <h3 id="payment-method-title" data-i18n="paymentMethod">Payment method</h3>
+              <div class="method-card">
+                <span class="method-icon" aria-hidden="true"><span></span></span>
+                <span>
+                  <strong data-i18n="syntheticMethod">Synthetic payment method</strong>
+                </span>
+                <span class="selected-mark" aria-hidden="true">✓</span>
+              </div>
+            </section>
 
-        <dl id="payment-details" class="payment-details" hidden>
-          <div><dt data-i18n="paymentId">Payment ID</dt><dd id="result-payment-id"></dd></div>
-          <div><dt data-i18n="merchantReference">Order reference</dt><dd id="result-reference"></dd></div>
-          <div><dt data-i18n="amount">Amount</dt><dd id="result-amount"></dd></div>
-          <div><dt data-i18n="status">Status</dt><dd id="result-payment-status"></dd></div>
-        </dl>
+            <button id="submit-payment" class="primary-action" type="submit">
+              <span data-submit-label>Pay</span>
+              <span class="button-progress" data-progress hidden aria-hidden="true"></span>
+            </button>
+          </div>
 
-        <div class="result-actions">
-          <button id="retry-payment" class="primary-action" type="button" hidden data-i18n="retry">
-            Retry
-          </button>
-          <button id="new-payment" class="secondary-action" type="button" data-i18n="newCheckout">
-            New test payment
-          </button>
-        </div>
-      </section>
+          <section
+            class="result-panel"
+            id="result-panel"
+            aria-labelledby="result-title"
+            tabindex="-1"
+            hidden
+          >
+            <div id="result-status" class="result-status" aria-hidden="true"></div>
+            <div class="result-copy">
+              <p class="eyebrow" data-i18n="resultLabel">Result</p>
+              <h2 id="result-title"></h2>
+              <p id="result-guidance"></p>
+            </div>
+
+            <dl id="payment-details" class="payment-details" hidden>
+              <div><dt data-i18n="paymentId">Payment ID</dt><dd id="result-payment-id"></dd></div>
+              <div><dt data-i18n="merchantReference">Order reference</dt><dd id="result-reference"></dd></div>
+              <div><dt data-i18n="amount">Amount</dt><dd id="result-amount"></dd></div>
+              <div><dt data-i18n="status">Status</dt><dd id="result-payment-status"></dd></div>
+            </dl>
+
+            <div class="result-actions">
+              <button id="retry-payment" class="primary-action" type="button" hidden data-i18n="retry">
+                Retry
+              </button>
+              <button id="new-payment" class="secondary-action" type="button" data-i18n="newCheckout">
+                New test payment
+              </button>
+            </div>
+          </section>
+        </section>
+      </form>
 
       <p id="live-status" class="visually-hidden" role="status" aria-live="polite"></p>
     </main>
