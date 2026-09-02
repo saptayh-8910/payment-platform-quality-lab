@@ -5,8 +5,9 @@
 | Field | Value |
 |---|---|
 | Enhancement | UX-01: Provider-neutral checkout experience |
-| Status | Draft for owner review; no UI implementation has started |
-| Owner | Repository owner |
+| Status | Approved plan; implementation evidence is recorded separately |
+| Owner | Sapta Y Husain |
+| Owner review | Revised catalog approved on 2026-09-02 |
 | Planned delivery | One focused pull request after design approval |
 | Test basis | Existing multilingual checkout, completed detailed decline outcomes, accessibility rules, and payment reliability requirements |
 | Required predecessor | Enhancement 1 merged and closed with owner-approved English and Japanese guidance; satisfied by PR #17 and its quality report |

@@ -27,8 +27,8 @@ processing real payments or cardholder data.
 
 ## System design
 
-The system under test is a small Python payment service with a minimal
-English/Japanese checkout. The service uses integer minor units, an explicit
+The system under test is a small Python payment service with a responsive,
+provider-neutral English/Japanese checkout. The service uses integer minor units, an explicit
 payment state machine, an immutable ledger, idempotency claims with immutable
 response snapshots, optimistic concurrency control, a transactional webhook
 outbox, and multi-source financial reconciliation.
@@ -37,7 +37,8 @@ Test tooling:
 
 - pytest for domain, API, database, webhook, and reconciliation testing.
 - FastAPI TestClient for service-level HTTP checks.
-- Node's built-in test runner for browser-side money rules.
+- Node's built-in test runner for browser-side money, UI-state, derived-view,
+  decline-guidance, and design-token contrast rules.
 - Cucumber-JS for business-readable Gherkin scenarios and scenario reports.
 - TypeScript Playwright for Chromium control, isolated contexts, mobile and
   keyboard actions, network routing, screenshots, and traces.
@@ -68,7 +69,7 @@ payment version once, and commits its idempotency record in the same transaction
 Invalid transitions and over-refunds leave payment and ledger state unchanged.
 
 The current automated baseline contains 264 pytest tests with 96.57%
-branch-aware coverage, 30 Node tests, and 10 Cucumber scenarios with 81 steps.
+branch-aware coverage, 45 Node tests, and 11 Cucumber scenarios with 99 steps.
 GitHub Actions runs the Python suite on Python 3.12 and 3.14 and runs the
 complete browser gate in Chromium.
 
@@ -103,11 +104,20 @@ packet: reference, integer amount, currency, and a safe outcome label. It does
 not store the raw API token. A final result clears that packet and keeps only
 the last payment ID needed for refresh.
 
-Ten Gherkin acceptance scenarios run through Cucumber-JS and TypeScript
+The checkout separates simulator settings from the customer payment surface.
+The simulator owns reference, amount, currency, and synthetic outcome controls.
+The customer view shows a live order summary, a neutral synthetic payment
+method, one amount-labelled action, and a focused result. Desktop uses two
+columns; mobile uses an expanded-by-default simulator disclosure above a
+single-column checkout. A named client-side state model centralizes editing,
+processing, final, uncertain, restored, and error presentation.
+
+Eleven Gherkin acceptance scenarios run through Cucumber-JS and TypeScript
 Playwright. They cover approval, decline, localized validation, exact currency
 display, Japanese input, repeated submission, post-commit timeout recovery
 across refresh, detailed decline guidance in both languages, no automatic
-decline resubmission, and a keyboard journey at a 390 by 844 responsive viewport.
+decline resubmission, simulator/customer separation, external-resource safety,
+and a keyboard journey at a 390 by 844 responsive viewport.
 Failed scenarios retain a screenshot and Playwright trace; Cucumber also
 produces HTML, JSON, and JUnit reports.
 
@@ -146,6 +156,11 @@ retrieval, idempotent replay, webhook delivery, and the merchant projection.
 Every decline keeps all financial balances at zero and creates no ledger entry.
 The [Enhancement 1 quality report](docs/quality/enhancements/e1-detailed-decline-outcomes/quality-report.md)
 records the automated, exploratory, privacy, defect, and limitation evidence.
+
+UX-01 redesigns the same checkout without changing payment contracts. Its
+approved catalog, local exploratory session, and pre-CI quality report record
+the visual hierarchy, state-model decision, Japanese font control, accessibility
+targets, regression mapping, and current limitations.
 
 ## Quick start
 
@@ -289,6 +304,9 @@ See:
 - [Enhancement 1 detailed decline scenario catalog](docs/quality/enhancements/e1-detailed-decline-outcomes/scenario-catalog.md)
 - [Enhancement 1 exploratory session](docs/quality/enhancements/e1-detailed-decline-outcomes/exploratory-session.md)
 - [Enhancement 1 quality report](docs/quality/enhancements/e1-detailed-decline-outcomes/quality-report.md)
+- [UX-01 checkout experience scenario catalog](docs/quality/enhancements/ux1-checkout-experience/scenario-catalog.md)
+- [UX-01 exploratory session](docs/quality/enhancements/ux1-checkout-experience/exploratory-session.md)
+- [UX-01 quality report](docs/quality/enhancements/ux1-checkout-experience/quality-report.md)
 - [Defect reports](docs/defects/)
 
 ## License
