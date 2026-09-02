@@ -5,12 +5,12 @@
 | Field | Value |
 |---|---|
 | Enhancement | UX-01: Provider-neutral checkout experience |
-| Result | Proceed to pull-request CI gate |
+| Result | Proceed within the declared simulator boundary |
 | Catalog commit | `6f0fd53` |
 | UI and state commit | `a325c07` |
 | QA and CI commit | `fe3c5ca` |
-| Pull request | Pending |
-| CI run | Pending |
+| Pull request | [#18](https://github.com/saptayh-8910/payment-platform-quality-lab/pull/18) |
+| CI runs | [Functional and browser CI](https://github.com/saptayh-8910/payment-platform-quality-lab/actions/runs/33615536837) and [performance checkpoint](https://github.com/saptayh-8910/payment-platform-quality-lab/actions/runs/33615536814) |
 | Local execution date | 2026-09-02 |
 
 ## Executive summary
@@ -26,9 +26,9 @@ coverage. The browser-side suite increased from 30 to 45 passing Node tests.
 The Cucumber suite increased from 10 to 11 passing cases and from 81 to 99
 passing steps.
 
-Local evidence supports progress to pull-request CI. UX-01 is not complete until
-the Linux browser job verifies its Japanese font, all required checks pass, and
-the final report records the pull request and CI run.
+The clean Linux pull-request run passed all six checks. Its browser log confirms
+that `Noto Sans CJK JP` was installed and selected before the 45 Node tests and
+11 Cucumber scenarios ran.
 
 ## Business problem
 
@@ -121,6 +121,7 @@ project later gains several pages or independent client states.
 | Cucumber-JS and Chromium | 11 scenarios and 99 steps passed |
 | Focused checkout API contract | 4 passed |
 | Git diff whitespace check | Passed |
+| Pull-request CI | Six checks passed: Python 3.12, Python 3.14, Chromium acceptance, performance selection, harness validation, and performance smoke |
 
 The new Node evidence includes seven state and derived-view checks and eight
 design-token contrast checks. The Cucumber evidence adds a critical
@@ -136,8 +137,8 @@ prove that a Japanese glyph font was present. The browser job now installs
 
 This control prevents a Japanese layout check from silently measuring missing
 glyph boxes. It does not replace human review of wrapping and readability.
-The first pull-request run must confirm that the installation works on the
-current Linux runner.
+The pull-request browser log printed `Noto Sans CJK JP` before the browser gate
+and then passed all 45 Node tests, 11 scenarios, and 99 steps.
 
 ## Exploratory evidence
 
@@ -192,9 +193,6 @@ test defect.
 
 ## Limitations
 
-- Pull-request CI evidence is pending.
-- Linux Japanese font verification is implemented but has not yet run in the
-  pull-request environment.
 - The interactive browser could not set native 200-percent page zoom. A
   640-CSS-pixel reflow proxy passed without overflow, but `VIEW-06` remains
   partial evidence.
@@ -208,10 +206,10 @@ test defect.
 
 ## Release recommendation
 
-Proceed to the pull-request CI gate. The local evidence shows a clearer and more
-credible checkout without a payment, idempotency, recovery, localization, or
-privacy regression. Close UX-01 only after CI confirms the Japanese font and all
-required tests on the clean Linux runner.
+Proceed within the declared simulator boundary. Local and pull-request evidence
+show a clearer and more credible checkout without a payment, idempotency,
+recovery, localization, or privacy regression. The Linux browser job verified
+the required Japanese font before its complete passing browser gate.
 
 ## Next quality risk
 

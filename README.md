@@ -158,7 +158,7 @@ The [Enhancement 1 quality report](docs/quality/enhancements/e1-detailed-decline
 records the automated, exploratory, privacy, defect, and limitation evidence.
 
 UX-01 redesigns the same checkout without changing payment contracts. Its
-approved catalog, local exploratory session, and pre-CI quality report record
+approved catalog, local exploratory session, and closing quality report record
 the visual hierarchy, state-model decision, Japanese font control, accessibility
 targets, regression mapping, and current limitations.
 
