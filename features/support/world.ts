@@ -28,6 +28,7 @@ export class CheckoutWorld extends World {
   page?: Page;
   paymentRequestCount = 0;
   externalRequestUrls: string[] = [];
+  failedPresentationResources: string[] = [];
   observedIdempotencyKeys: string[] = [];
   committedPaymentId?: string;
 

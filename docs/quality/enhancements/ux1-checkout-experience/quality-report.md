@@ -23,7 +23,7 @@ test payment method, one amount-labelled action, and the final result.
 The redesign did not change payment business rules or backend contracts. The
 complete Python suite remained at 264 passing tests with 96.57 percent branch
 coverage. The browser-side suite increased from 30 to 45 passing Node tests.
-The Cucumber suite increased from 10 to 11 passing cases and from 81 to 99
+The Cucumber suite increased from 10 to 11 passing cases and from 81 to 100
 passing steps.
 
 The clean Linux pull-request run passed all six checks. Its browser log confirms
@@ -118,7 +118,7 @@ project later gains several pages or independent client states.
 | Branch-aware coverage | 96.57%; required minimum 85% |
 | Node unit suite | 45 passed |
 | TypeScript check | Passed |
-| Cucumber-JS and Chromium | 11 scenarios and 99 steps passed |
+| Cucumber-JS and Chromium | 11 scenarios and 100 steps passed |
 | Focused checkout API contract | 4 passed |
 | Git diff whitespace check | Passed |
 | Pull-request CI | Six checks passed: Python 3.12, Python 3.14, Chromium acceptance, performance selection, harness validation, and performance smoke |
@@ -138,7 +138,7 @@ prove that a Japanese glyph font was present. The browser job now installs
 This control prevents a Japanese layout check from silently measuring missing
 glyph boxes. It does not replace human review of wrapping and readability.
 The pull-request browser log printed `Noto Sans CJK JP` before the browser gate
-and then passed all 45 Node tests, 11 scenarios, and 99 steps.
+and then passed all 45 Node tests, 11 scenarios, and 100 steps.
 
 ## Exploratory evidence
 
@@ -179,11 +179,17 @@ completion, selected language, and horizontal overflow.
   browser evidence.
 - The new browser scenario fails if the page requests an external font, image,
   analytics script, or runtime resource.
+- It also fails if a document, font, image, script, or stylesheet response has
+  an HTTP error.
 - No frontend framework or remote design asset was added.
 
 ## Defects and observations
 
 No product defect was found during implementation or exploratory review.
+
+The local server log exposed one missing default `/favicon.ico` request. A small
+inline project icon removed that presentation-only 404, and a browser assertion
+now prevents equivalent failed presentation resources from returning unnoticed.
 
 A focused four-test pytest command initially triggered the repository-wide 85
 percent coverage gate because it did not run the remaining tests. Repeating the

@@ -78,7 +78,7 @@ risk to its evidence.
 
 - 264 pytest tests with 96.57% branch-aware coverage.
 - 45 Node money, decline-guidance, UI-state, derived-view, and contrast tests.
-- 11 Cucumber scenarios with 99 passing steps.
+- 11 Cucumber scenarios with 100 passing steps.
 - Chromium acceptance evidence for English, Japanese, responsive, keyboard,
   duplicate-submission, and uncertain-response recovery journeys.
 - Python 3.12 and Python 3.14 CI coverage.

@@ -70,6 +70,12 @@ Before(async function (this: CheckoutWorld, scenario: ITestCaseHookParameter) {
       }
     }
   });
+  this.page.on("response", (response) => {
+    const presentationTypes = new Set(["document", "font", "image", "script", "stylesheet"]);
+    if (response.status() >= 400 && presentationTypes.has(response.request().resourceType())) {
+      this.failedPresentationResources.push(`${response.status()} ${response.url()}`);
+    }
+  });
 });
 
 After(async function (this: CheckoutWorld, scenario: ITestCaseHookParameter) {

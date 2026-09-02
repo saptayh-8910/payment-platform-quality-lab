@@ -88,6 +88,11 @@ conformance audit.
 
 No product defect was found.
 
+The local server log showed one missing default `/favicon.ico` request during
+review. The checkout now declares a small inline project icon, and the browser
+gate fails if any document, font, image, script, or stylesheet response has an
+HTTP error. This presentation-only observation did not affect payment behavior.
+
 One evidence limitation remains. The selected interactive browser did not expose
 a direct page-zoom control. A 640-CSS-pixel viewport provided the same horizontal
 reflow pressure as a 1280-pixel page at 200 percent, and that check passed. It

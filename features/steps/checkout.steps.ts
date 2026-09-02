@@ -281,6 +281,10 @@ Then("the browser requested no external resources", function (this: CheckoutWorl
   assert.deepEqual(this.externalRequestUrls, []);
 });
 
+Then("the browser loaded no failed presentation resources", function (this: CheckoutWorld) {
+  assert.deepEqual(this.failedPresentationResources, []);
+});
+
 When("the customer waits without taking action", async function (this: CheckoutWorld) {
   await this.requirePage().waitForTimeout(500);
 });

@@ -66,6 +66,7 @@ Feature: Multilingual test checkout
     Then the customer checkout does not reveal the planned outcome
     And the browser sent zero payment requests
     And the browser requested no external resources
+    And the browser loaded no failed presentation resources
 
   @negative @reliability
   Scenario: Declined result does not resubmit without customer action

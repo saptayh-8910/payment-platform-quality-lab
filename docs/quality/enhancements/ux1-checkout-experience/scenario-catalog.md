@@ -383,6 +383,7 @@ professionally certified translation.
 | SAFE-02 | Page is opened from a clean browser session | No external font, analytics, image, or design dependency is requested | High | E2E | Playwright request inspection |
 | SAFE-03 | UI assets are compared before and after | Redesign remains lightweight and does not add a frontend runtime or remote dependency | Medium | Review | File and network review |
 | SAFE-04 | A browser scenario fails in CI | Existing screenshot, trace, HTML, JSON, and JUnit evidence remains available and sanitized | High | CI | Controlled verification |
+| SAFE-05 | Checkout presentation resources load | Document, font, image, script, and stylesheet responses have no HTTP error | Medium | E2E | Playwright response inspection |
 
 ## Existing Gherkin scenario mapping
 

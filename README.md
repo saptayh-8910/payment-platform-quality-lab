@@ -69,7 +69,7 @@ payment version once, and commits its idempotency record in the same transaction
 Invalid transitions and over-refunds leave payment and ledger state unchanged.
 
 The current automated baseline contains 264 pytest tests with 96.57%
-branch-aware coverage, 45 Node tests, and 11 Cucumber scenarios with 99 steps.
+branch-aware coverage, 45 Node tests, and 11 Cucumber scenarios with 100 steps.
 GitHub Actions runs the Python suite on Python 3.12 and 3.14 and runs the
 complete browser gate in Chromium.
 
