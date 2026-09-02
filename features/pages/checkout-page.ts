@@ -42,6 +42,10 @@ export class CheckoutPage {
     await this.page.locator("#submit-payment").click();
   }
 
+  async selectOutcome(outcome: Outcome): Promise<void> {
+    await this.page.locator("#outcome").selectOption(tokenByOutcome[outcome]);
+  }
+
   async submitRapidlyTwice(): Promise<void> {
     await this.page.locator("#submit-payment").evaluate((button) => {
       button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -96,6 +100,46 @@ export class CheckoutPage {
     return (await this.page.locator("#result-payment-status").textContent()) ?? "";
   }
 
+  async summaryReference(): Promise<string> {
+    return (await this.page.locator("#summary-reference").textContent()) ?? "";
+  }
+
+  async summaryAmount(): Promise<string> {
+    return (await this.page.locator("#summary-amount").textContent()) ?? "";
+  }
+
+  async paymentActionLabel(): Promise<string> {
+    return (await this.page.locator("#submit-payment").textContent())?.trim() ?? "";
+  }
+
+  async testEnvironmentIsVisible(): Promise<boolean> {
+    return this.page.locator(".environment-banner").isVisible();
+  }
+
+  async outcomeBelongsOnlyToSimulator(): Promise<boolean> {
+    return this.page.evaluate(() => {
+      const outcome = document.querySelector("#outcome");
+      return Boolean(
+        outcome?.closest("[data-region='simulator']") &&
+          !outcome?.closest("[data-region='checkout']"),
+      );
+    });
+  }
+
+  async checkoutUsesSyntheticMethodWithoutCredentialFields(): Promise<boolean> {
+    return this.page.evaluate(() => {
+      const checkout = document.querySelector("[data-region='checkout']");
+      const syntheticMethod = checkout?.querySelector("[data-i18n='syntheticMethod']");
+      const credentialField = checkout?.querySelector("input, select, textarea");
+      return Boolean(syntheticMethod && !credentialField);
+    });
+  }
+
+  async checkoutRevealsOutcome(): Promise<boolean> {
+    const checkoutText = await this.page.locator("[data-region='checkout']").innerText();
+    return /insufficient|declin|残高不足|拒否/i.test(checkoutText);
+  }
+
   async paymentId(): Promise<string> {
     return (await this.page.locator("#result-payment-id").textContent()) ?? "";
   }
@@ -132,6 +176,8 @@ export class CheckoutPage {
       return Boolean(
         document.querySelector("main") &&
           document.querySelectorAll("h1").length === 1 &&
+          document.querySelector("[data-region='simulator']") &&
+          document.querySelector("[data-region='checkout']") &&
           document.querySelector("[role='status'][aria-live]") &&
           labelledControls,
       );

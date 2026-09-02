@@ -27,6 +27,7 @@ def test_checkout_serves_semantic_page(client: TestClient) -> None:
 def test_checkout_serves_browser_assets(client: TestClient) -> None:
     for asset, media_type in [
         ("checkout.js", "text/javascript"),
+        ("checkout-view.js", "text/javascript"),
         ("decline-messages.js", "text/javascript"),
         ("money.js", "text/javascript"),
         ("styles.css", "text/css"),

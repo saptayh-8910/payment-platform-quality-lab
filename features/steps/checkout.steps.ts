@@ -83,6 +83,13 @@ When("the customer submits the entered payment", async function (this: CheckoutW
 });
 
 When(
+  "the customer selects the {word} outcome without submitting",
+  async function (this: CheckoutWorld, outcome: Outcome) {
+    await checkout(this).selectOutcome(outcome);
+  },
+);
+
+When(
   "the customer rapidly submits twice for reference {string} and JPY {string}",
   async function (this: CheckoutWorld, reference: string, amount: string) {
     const page = checkout(this);
@@ -189,6 +196,47 @@ Then(
 );
 
 Then(
+  "the order preview shows reference {string} and amount {string}",
+  async function (this: CheckoutWorld, reference: string, amount: string) {
+    const page = checkout(this);
+    assert.equal(await page.summaryReference(), reference);
+    assert.equal(await page.summaryAmount(), amount);
+  },
+);
+
+Then(
+  "the payment action says {string}",
+  async function (this: CheckoutWorld, expected: string) {
+    assert.equal(await checkout(this).paymentActionLabel(), expected);
+  },
+);
+
+Then("the test-environment warning is visible", async function (this: CheckoutWorld) {
+  assert.equal(await checkout(this).testEnvironmentIsVisible(), true);
+});
+
+Then(
+  "the outcome selector belongs only to the simulator controls",
+  async function (this: CheckoutWorld) {
+    assert.equal(await checkout(this).outcomeBelongsOnlyToSimulator(), true);
+  },
+);
+
+Then(
+  "the checkout shows a synthetic method without credential fields",
+  async function (this: CheckoutWorld) {
+    assert.equal(await checkout(this).checkoutUsesSyntheticMethodWithoutCredentialFields(), true);
+  },
+);
+
+Then(
+  "the customer checkout does not reveal the planned outcome",
+  async function (this: CheckoutWorld) {
+    assert.equal(await checkout(this).checkoutRevealsOutcome(), false);
+  },
+);
+
+Then(
   "the payment has {word} ledger entry and one webhook event",
   async function (this: CheckoutWorld, countWord: string) {
     const expectedCount = countWord === "one" ? 1 : 0;
@@ -223,6 +271,14 @@ Then("keyboard focus moves to the error summary", async function (this: Checkout
 
 Then("the browser sent one payment request", function (this: CheckoutWorld) {
   assert.equal(this.paymentRequestCount, 1);
+});
+
+Then("the browser sent zero payment requests", function (this: CheckoutWorld) {
+  assert.equal(this.paymentRequestCount, 0);
+});
+
+Then("the browser requested no external resources", function (this: CheckoutWorld) {
+  assert.deepEqual(this.externalRequestUrls, []);
 });
 
 When("the customer waits without taking action", async function (this: CheckoutWorld) {
