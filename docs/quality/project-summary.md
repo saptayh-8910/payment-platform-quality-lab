@@ -51,6 +51,12 @@ and [quality report](enhancements/ux1-checkout-experience/quality-report.md)
 record the design decisions, Japanese font control, regression mapping, local
 evidence, pull-request CI, and limitations.
 
+The Enhancement 2 database foundation is complete. It adds explicit versioned
+migrations, preserves a known older database, and stops service startup when a
+schema is not current. The [foundation report](enhancements/e2-asynchronous-payment-confirmation/migration-foundation-report.md)
+records its evidence and limitations. Asynchronous payment confirmation itself
+remains planned rather than passed.
+
 ## Test architecture
 
 Different test levels answer different questions:
@@ -76,7 +82,7 @@ risk to its evidence.
 
 ## Automated evidence at project close
 
-- 264 pytest tests with 96.57% branch-aware coverage.
+- 268 pytest tests with 89.87% branch-aware coverage.
 - 45 Node money, decline-guidance, UI-state, derived-view, and contrast tests.
 - 11 Cucumber scenarios with 100 passing steps.
 - Chromium acceptance evidence for English, Japanese, responsive, keyboard,
@@ -102,6 +108,7 @@ tests are not presented as discovered bugs.
 | [DEF-005](../defects/DEF-005-unlocalized-checkout-status.md): Japanese result exposed an English API status | Medium | Manual mobile review | Resolved with localized customer status text |
 | [DEF-006](../defects/DEF-006-uncertain-payment-lost-after-refresh.md): refresh removed uncertain-payment recovery | High | Structured exploratory testing | Resolved and added to the critical Cucumber journey |
 | [DEF-007](../defects/DEF-007-null-decline-reason-constraint.md): declined row accepted a null reason | High | Enhancement 1 database integration testing | Resolved with explicit null rejection and three invalid-combination regressions |
+| [DEF-008](../defects/DEF-008-unversioned-local-database.md): older local schema failed only on payment submission | High | Full-stack checkout follow-up | Resolved with explicit migrations, data-preserving upgrade tests, and fail-fast startup |
 
 Milestone 8 also recorded a CI timing observation. One authorization run failed
 its p99 guardrail while all financial checks passed. A focused confirmation and
@@ -123,6 +130,8 @@ Within the declared simulator boundary, the evidence supports these statements:
 - Simulator controls remain separate from a responsive customer checkout while
   exact amount, localization, idempotency, recovery, and privacy behavior stay
   covered.
+- A known older SQLite schema upgrades without losing payment evidence, while an
+  unknown or outdated schema cannot start the normal HTTP service as if ready.
 - An uncertain response remains honest and can be retried with the original key.
 - The declared performance workload completes without request loss or incorrect
   financial effects in two repeated passing baselines.

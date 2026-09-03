@@ -19,6 +19,7 @@ from urllib.request import urlopen
 
 from payment_quality_lab.performance.profiles import available_profiles
 from payment_quality_lab.performance.verifier import verify_database, write_report
+from payment_quality_lab.persistence.migrations import upgrade_database
 
 PINNED_K6_VERSION = "v2.0.0"
 RUN_ID_PATTERN = re.compile(r"^[a-z0-9]{8,24}$")
@@ -166,6 +167,7 @@ def run_profile(
     with tempfile.TemporaryDirectory(prefix="payment-lab-performance-") as temporary:
         database_path = Path(temporary) / "performance.db"
         database_url = f"sqlite:///{database_path}"
+        upgrade_database(database_url)
         port = find_available_port()
         base_url = f"http://127.0.0.1:{port}"
         server_environment = os.environ.copy()

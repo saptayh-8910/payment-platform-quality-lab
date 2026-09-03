@@ -17,6 +17,7 @@ def webhook_test_app(tmp_path) -> Iterator[FastAPI]:
     application = create_app(
         f"sqlite:///{tmp_path / 'webhook-api.db'}",
         enable_failure_injection=True,
+        initialize_schema=True,
     )
     yield application
     application.state.engine.dispose()

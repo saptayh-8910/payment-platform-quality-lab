@@ -11,6 +11,7 @@ requires-python = ">=3.12"
 license = "MIT"
 authors = [{ name = "saptayh-8910" }]
 dependencies = [
+  "alembic>=1.15,<2.0",
   "fastapi>=0.115,<1.0",
   "sqlalchemy>=2.0,<3.0",
   "uvicorn[standard]>=0.34,<1.0",
@@ -27,6 +28,7 @@ dev = [
 
 [project.scripts]
 payment-quality-lab = "payment_quality_lab.main:run"
+payment-quality-lab-migrate = "payment_quality_lab.persistence.migrations:run"
 
 [tool.setuptools.packages.find]
 where = ["src"]
