@@ -41,6 +41,16 @@ See its [scenario catalog](enhancements/e1-detailed-decline-outcomes/scenario-ca
 [exploratory session](enhancements/e1-detailed-decline-outcomes/exploratory-session.md),
 and [quality report](enhancements/e1-detailed-decline-outcomes/quality-report.md).
 
+UX-01 is also complete. It separates simulator settings from the customer
+checkout, adds an exact live order summary and amount-labelled action, and uses
+one tested client-side state model for editing, processing, final, uncertain,
+restored, and error presentation. Its
+[catalog](enhancements/ux1-checkout-experience/scenario-catalog.md),
+[exploratory session](enhancements/ux1-checkout-experience/exploratory-session.md),
+and [quality report](enhancements/ux1-checkout-experience/quality-report.md)
+record the design decisions, Japanese font control, regression mapping, local
+evidence, pull-request CI, and limitations.
+
 ## Test architecture
 
 Different test levels answer different questions:
@@ -67,8 +77,8 @@ risk to its evidence.
 ## Automated evidence at project close
 
 - 264 pytest tests with 96.57% branch-aware coverage.
-- 30 Node money and decline-guidance tests.
-- 10 Cucumber scenarios with 81 passing steps.
+- 45 Node money, decline-guidance, UI-state, derived-view, and contrast tests.
+- 11 Cucumber scenarios with 100 passing steps.
 - Chromium acceptance evidence for English, Japanese, responsive, keyboard,
   duplicate-submission, and uncertain-response recovery journeys.
 - Python 3.12 and Python 3.14 CI coverage.
@@ -110,6 +120,9 @@ Within the declared simulator boundary, the evidence supports these statements:
 - English and Japanese customers receive selected safe checkout journeys.
 - Six normalized decline reasons retain zero financial effect and map to useful
   English and Japanese guidance without exposing the submitted token.
+- Simulator controls remain separate from a responsive customer checkout while
+  exact amount, localization, idempotency, recovery, and privacy behavior stay
+  covered.
 - An uncertain response remains honest and can be retried with the original key.
 - The declared performance workload completes without request loss or incorrect
   financial effects in two repeated passing baselines.
@@ -144,9 +157,9 @@ A reviewer can understand the project efficiently in this order:
 
 ## Post-MVP enhancement status
 
-Enhancement 1 translates selected public payment-platform test patterns into
-provider-neutral decline scenarios. It has passing local and pull-request CI
-evidence.
+Enhancement 1 and UX-01 have passing local and pull-request CI evidence. Together
+they add provider-neutral decline depth and a clearer customer checkout without
+changing the declared simulator boundary.
 
 Future enhancement work will keep the same review order: approve the scenario
 catalog, implement a focused slice, execute automated and exploratory evidence,

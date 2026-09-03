@@ -59,12 +59,21 @@ Before(async function (this: CheckoutWorld, scenario: ITestCaseHookParameter) {
   await this.context.tracing.start({ screenshots: true, snapshots: true, sources: true });
   this.page = await this.context.newPage();
   this.page.on("request", (request) => {
+    if (new URL(request.url()).origin !== baseUrl) {
+      this.externalRequestUrls.push(request.url());
+    }
     if (request.method() === "POST" && new URL(request.url()).pathname === "/payments") {
       this.paymentRequestCount += 1;
       const key = request.headers()["idempotency-key"];
       if (key) {
         this.observedIdempotencyKeys.push(key);
       }
+    }
+  });
+  this.page.on("response", (response) => {
+    const presentationTypes = new Set(["document", "font", "image", "script", "stylesheet"]);
+    if (response.status() >= 400 && presentationTypes.has(response.request().resourceType())) {
+      this.failedPresentationResources.push(`${response.status()} ${response.url()}`);
     }
   });
 });

@@ -1,4 +1,10 @@
-import { formatMinorUnits, parseMinorUnits } from "/checkout/assets/money.js";
+import {
+  deriveOrderPreview,
+  paymentActionLabel,
+  transitionUiState,
+  UI_EVENTS,
+  UI_STATES,
+} from "/checkout/assets/checkout-view.js";
 import { guidanceForDecline } from "/checkout/assets/decline-messages.js";
 
 const storedOutcomeByToken = Object.freeze({
@@ -15,6 +21,15 @@ const tokenByStoredOutcome = Object.freeze(
   Object.fromEntries(Object.entries(storedOutcomeByToken).map(([token, outcome]) => [outcome, token])),
 );
 
+const tokenByDeclineReason = Object.freeze({
+  insufficient_funds: "tok_declined_insufficient_funds",
+  limit_exceeded: "tok_declined_limit_exceeded",
+  expired_payment_method: "tok_declined_expired",
+  verification_failed: "tok_declined_verification",
+  invalid_payment_method: "tok_declined_invalid",
+  unknown: "tok_declined_unknown",
+});
+
 const copy = {
   en: {
     pageTitle: "Payment test",
@@ -22,7 +37,11 @@ const copy = {
     languageNavigation: "Language",
     eyebrow: "Privacy-safe simulator",
     introduction: "Test payment behavior with synthetic outcomes. Do not enter real payment data.",
-    formTitle: "Test details",
+    environmentLabel: "Test environment",
+    environmentWarning: "Do not enter real payment information.",
+    formTitle: "Simulator controls",
+    simulatorExplanation:
+      "These settings control the test scenario. They are not customer payment choices.",
     errorTitle: "Check the following fields",
     merchantReference: "Order reference",
     merchantReferenceHelp: "Use a synthetic reference only.",
@@ -38,7 +57,14 @@ const copy = {
     declineInvalid: "Decline — invalid payment method",
     declineUnknown: "Decline — other reason",
     outcomeHelp: "This controls the simulator. It is not a payment method.",
-    submit: "Run test payment",
+    checkoutTitle: "Test checkout",
+    testOnly: "Test only",
+    orderSummary: "Order summary",
+    total: "Total",
+    paymentMethod: "Payment method",
+    syntheticMethod: "Synthetic payment method",
+    pay: "Pay",
+    payWithAmount: "Pay {amount}",
     processing: "Processing…",
     resultLabel: "Result",
     paymentId: "Payment ID",
@@ -65,7 +91,11 @@ const copy = {
     languageNavigation: "言語",
     eyebrow: "個人情報を使用しないシミュレーター",
     introduction: "テスト用の結果で決済の動作を確認します。実際の決済情報は入力しないでください。",
-    formTitle: "テスト内容",
+    environmentLabel: "テスト環境",
+    environmentWarning: "実際の決済情報は入力しないでください。",
+    formTitle: "シミュレーター設定",
+    simulatorExplanation:
+      "これらの設定はテストシナリオを制御します。実際の決済方法ではありません。",
     errorTitle: "入力内容を確認してください",
     merchantReference: "注文番号",
     merchantReferenceHelp: "テスト用の注文番号のみを使用してください。",
@@ -81,7 +111,14 @@ const copy = {
     declineInvalid: "拒否 — 利用できない決済方法",
     declineUnknown: "拒否 — その他の理由",
     outcomeHelp: "シミュレーターの結果を選びます。実際の決済方法ではありません。",
-    submit: "テスト決済を実行",
+    checkoutTitle: "テスト決済",
+    testOnly: "テスト専用",
+    orderSummary: "ご注文内容",
+    total: "合計",
+    paymentMethod: "決済方法",
+    syntheticMethod: "テスト用決済方法",
+    pay: "支払う",
+    payWithAmount: "{amount}を支払う",
     processing: "処理中です…",
     resultLabel: "結果",
     paymentId: "決済ID",
@@ -106,13 +143,19 @@ const copy = {
 
 const elements = {
   form: document.querySelector("#checkout-form"),
-  formPanel: document.querySelector("#checkout-panel"),
+  checkoutCard: document.querySelector("[data-region='checkout']"),
+  disclosure: document.querySelector("#simulator-disclosure"),
+  fields: document.querySelector("#simulator-fields"),
   reference: document.querySelector("#merchant-reference"),
   amount: document.querySelector("#amount"),
   currency: document.querySelector("#currency"),
   outcome: document.querySelector("#outcome"),
+  summaryReference: document.querySelector("#summary-reference"),
+  summaryAmount: document.querySelector("#summary-amount"),
+  summaryCurrency: document.querySelector("#summary-currency"),
+  actionPanel: document.querySelector("#payment-action-panel"),
   submit: document.querySelector("#submit-payment"),
-  submitLabel: document.querySelector("#submit-payment [data-i18n]"),
+  submitLabel: document.querySelector("[data-submit-label]"),
   progress: document.querySelector("[data-progress]"),
   errorSummary: document.querySelector("#error-summary"),
   errorList: document.querySelector("#error-list"),
@@ -131,6 +174,7 @@ const elements = {
 };
 
 let language = readLanguage();
+let uiState = UI_STATES.EDITING;
 let currentPayment = null;
 let currentErrorKey = "generalError";
 
@@ -166,21 +210,10 @@ function setLanguage(nextLanguage) {
     button.setAttribute("aria-pressed", String(selected));
   }
 
-  if (currentPayment) {
-    renderPayment(currentPayment);
-  } else if (!elements.resultPanel.hidden) {
-    if (elements.resultPanel.dataset.result === "uncertain") {
-      renderUncertain();
-    } else if (elements.resultPanel.dataset.result === "error") {
-      renderError(currentErrorKey);
-    }
-  }
   if (!elements.errorSummary.hidden) {
-    validateForm();
+    validateForm({ focusError: false });
   }
-  if (elements.submit.disabled) {
-    elements.submitLabel.textContent = copy[language].processing;
-  }
+  renderUi();
 }
 
 function clearValidation() {
@@ -208,7 +241,7 @@ function showFieldError(field, message) {
   elements.errorList.append(item);
 }
 
-function validateForm() {
+function validateForm({ focusError = true } = {}) {
   clearValidation();
   let valid = true;
 
@@ -220,28 +253,83 @@ function validateForm() {
     valid = false;
   }
 
-  const amount = parseMinorUnits(elements.amount.value, elements.currency.value);
+  const preview = currentOrderPreview();
   if (!elements.amount.value) {
     showFieldError(elements.amount, copy[language].required);
     valid = false;
-  } else if (amount === null) {
+  } else if (preview.amount === null) {
     showFieldError(elements.amount, copy[language].invalidAmount);
     valid = false;
   }
 
   if (!valid) {
     elements.errorSummary.hidden = false;
-    elements.errorSummary.focus();
+    if (focusError) {
+      elements.errorSummary.focus();
+    }
     return null;
   }
-  return amount;
+  return preview.amount;
 }
 
-function setProcessing(processing) {
-  elements.submit.disabled = processing;
-  elements.submitLabel.textContent = processing ? copy[language].processing : copy[language].submit;
-  elements.progress.hidden = !processing;
-  elements.liveStatus.textContent = processing ? copy[language].processing : "";
+function currentOrderPreview() {
+  return deriveOrderPreview({
+    merchantReference: elements.reference.value,
+    displayAmount: elements.amount.value,
+    currency: elements.currency.value,
+    language,
+  });
+}
+
+function renderOrderPreview() {
+  const preview = currentOrderPreview();
+  elements.summaryReference.textContent = preview.merchantReference || "—";
+  elements.summaryReference.dataset.empty = String(!preview.merchantReference);
+  elements.summaryAmount.textContent = preview.formattedAmount || "—";
+  elements.summaryCurrency.textContent = elements.currency.value;
+  elements.submitLabel.textContent =
+    uiState === UI_STATES.PROCESSING || uiState === UI_STATES.RESTORING
+      ? copy[language].processing
+      : paymentActionLabel({
+          defaultLabel: copy[language].pay,
+          amountTemplate: copy[language].payWithAmount,
+          formattedAmount: preview.formattedAmount,
+        });
+}
+
+function renderUi({ focusResult = false } = {}) {
+  const busy = uiState === UI_STATES.PROCESSING || uiState === UI_STATES.RESTORING;
+  const showsResult = [UI_STATES.FINAL, UI_STATES.UNCERTAIN, UI_STATES.ERROR].includes(uiState);
+
+  elements.fields.disabled = busy || showsResult;
+  elements.submit.disabled = busy;
+  elements.progress.hidden = !busy;
+  elements.actionPanel.hidden = showsResult;
+  elements.resultPanel.hidden = !showsResult;
+  elements.checkoutCard.setAttribute("aria-busy", String(busy));
+  renderOrderPreview();
+
+  if (uiState === UI_STATES.FINAL) {
+    renderFinalResult();
+  } else if (uiState === UI_STATES.UNCERTAIN) {
+    renderUncertainResult();
+  } else if (uiState === UI_STATES.ERROR) {
+    renderErrorResult();
+  } else {
+    elements.liveStatus.textContent = busy ? copy[language].processing : "";
+  }
+
+  if (focusResult && showsResult) {
+    if (window.matchMedia("(max-width: 50rem)").matches) {
+      elements.disclosure.open = false;
+    }
+    elements.resultPanel.focus({ preventScroll: true });
+  }
+}
+
+function moveUi(event, options) {
+  uiState = transitionUiState(uiState, event);
+  renderUi(options);
 }
 
 function activeIdempotencyKey() {
@@ -305,8 +393,7 @@ async function submitPayment() {
     return;
   }
 
-  setProcessing(true);
-  elements.resultPanel.hidden = true;
+  moveUi(UI_EVENTS.START_SUBMISSION);
   const key = activeIdempotencyKey();
   storeActiveSubmission(activeSubmission(amount));
 
@@ -330,39 +417,35 @@ async function submitPayment() {
       clearActiveSubmission();
       sessionStorage.setItem(lastPaymentStorageName, body.id);
       currentPayment = body;
-      renderPayment(body);
+      moveUi(UI_EVENTS.PAYMENT_RESOLVED, { focusResult: true });
     } else if (response.status === 504 && body.code === "payment_timeout") {
-      renderUncertain();
+      currentPayment = null;
+      moveUi(UI_EVENTS.RESULT_UNCERTAIN, { focusResult: true });
     } else {
       clearActiveSubmission();
-      renderError("generalError");
+      currentPayment = null;
+      currentErrorKey = "generalError";
+      moveUi(UI_EVENTS.SHOW_ERROR, { focusResult: true });
     }
   } catch {
-    renderUncertain();
-  } finally {
-    setProcessing(false);
+    currentPayment = null;
+    moveUi(UI_EVENTS.RESULT_UNCERTAIN, { focusResult: true });
   }
 }
 
-function showResultShell(kind) {
-  elements.formPanel.hidden = true;
-  elements.resultPanel.hidden = false;
+function renderFinalResult() {
+  const authorized = currentPayment.status === "AUTHORIZED";
+  const kind = authorized ? "success" : "decline";
   elements.resultPanel.dataset.result = kind;
-  elements.resultStatus.textContent = kind === "success" ? "✓" : kind === "decline" ? "×" : "?";
-  elements.resultPanel.focus({ preventScroll: true });
-}
-
-function renderPayment(payment) {
-  const authorized = payment.status === "AUTHORIZED";
-  showResultShell(authorized ? "success" : "decline");
+  elements.resultStatus.textContent = authorized ? "✓" : "×";
   elements.resultTitle.textContent = authorized ? copy[language].authorized : copy[language].declined;
   elements.resultGuidance.textContent = authorized
     ? copy[language].authorizedGuidance
-    : guidanceForDecline(payment.decline_reason, language);
+    : guidanceForDecline(currentPayment.decline_reason, language);
   elements.paymentDetails.hidden = false;
-  elements.paymentId.textContent = payment.id;
-  elements.resultReference.textContent = payment.merchant_reference;
-  elements.resultAmount.textContent = formatMinorUnits(payment.amount, payment.currency, language);
+  elements.paymentId.textContent = currentPayment.id;
+  elements.resultReference.textContent = currentPayment.merchant_reference;
+  elements.resultAmount.textContent = currentOrderPreview().formattedAmount;
   elements.paymentStatus.textContent = authorized
     ? copy[language].authorizedStatus
     : copy[language].declinedStatus;
@@ -371,9 +454,9 @@ function renderPayment(payment) {
   elements.liveStatus.textContent = elements.resultTitle.textContent;
 }
 
-function renderUncertain() {
-  currentPayment = null;
-  showResultShell("uncertain");
+function renderUncertainResult() {
+  elements.resultPanel.dataset.result = "uncertain";
+  elements.resultStatus.textContent = "?";
   elements.resultTitle.textContent = copy[language].uncertain;
   elements.resultGuidance.textContent = copy[language].uncertainGuidance;
   elements.paymentDetails.hidden = true;
@@ -382,43 +465,63 @@ function renderUncertain() {
   elements.liveStatus.textContent = copy[language].uncertain;
 }
 
-function renderError(messageKey) {
-  currentPayment = null;
-  currentErrorKey = messageKey;
-  showResultShell("error");
+function renderErrorResult() {
+  elements.resultPanel.dataset.result = "error";
+  elements.resultStatus.textContent = "!";
   elements.resultTitle.textContent = copy[language].generalError;
-  elements.resultGuidance.textContent = copy[language][messageKey];
+  elements.resultGuidance.textContent = copy[language][currentErrorKey];
   elements.paymentDetails.hidden = true;
   elements.retry.hidden = true;
   elements.newPayment.hidden = false;
-  elements.liveStatus.textContent = copy[language][messageKey];
+  elements.liveStatus.textContent = copy[language][currentErrorKey];
 }
 
 function resetCheckout() {
   currentPayment = null;
+  currentErrorKey = "generalError";
   clearActiveSubmission();
   sessionStorage.removeItem(lastPaymentStorageName);
   elements.form.reset();
+  elements.disclosure.open = true;
   clearValidation();
-  elements.resultPanel.hidden = true;
-  elements.formPanel.hidden = false;
+  moveUi(UI_EVENTS.RESET);
   elements.reference.focus();
 }
 
+function displayAmountFromMinorUnits(amount, currency) {
+  return currency === "JPY"
+    ? String(amount)
+    : `${Math.floor(amount / 100)}.${String(amount % 100).padStart(2, "0")}`;
+}
+
+function populateControlsFromPayment(payment) {
+  elements.reference.value = payment.merchant_reference;
+  elements.amount.value = displayAmountFromMinorUnits(payment.amount, payment.currency);
+  elements.currency.value = payment.currency;
+  elements.outcome.value =
+    payment.status === "AUTHORIZED"
+      ? "tok_approved"
+      : (tokenByDeclineReason[payment.decline_reason] ?? "tok_declined_unknown");
+}
+
 async function restorePayment() {
+  moveUi(UI_EVENTS.START_RESTORE);
   const paymentId = sessionStorage.getItem(lastPaymentStorageName);
   if (paymentId) {
     try {
       const response = await fetch(`/payments/${encodeURIComponent(paymentId)}`);
       if (!response.ok) {
         sessionStorage.removeItem(lastPaymentStorageName);
-        renderError("missingResult");
+        currentErrorKey = "missingResult";
+        moveUi(UI_EVENTS.SHOW_ERROR);
         return;
       }
       currentPayment = await response.json();
-      renderPayment(currentPayment);
+      populateControlsFromPayment(currentPayment);
+      moveUi(UI_EVENTS.PAYMENT_RESOLVED);
     } catch {
-      renderError("generalError");
+      currentErrorKey = "generalError";
+      moveUi(UI_EVENTS.SHOW_ERROR);
     }
     return;
   }
@@ -426,21 +529,21 @@ async function restorePayment() {
   const key = sessionStorage.getItem(activeKeyStorageName);
   const submission = readActiveSubmission();
   if (!key && !submission) {
+    moveUi(UI_EVENTS.RESTORE_EMPTY);
     return;
   }
   if (!key || key.length < 8 || key.length > 128 || !submission) {
     clearActiveSubmission();
+    moveUi(UI_EVENTS.RESTORE_EMPTY);
     return;
   }
 
   elements.reference.value = submission.merchantReference;
-  elements.amount.value =
-    submission.currency === "JPY"
-      ? String(submission.amount)
-      : `${Math.floor(submission.amount / 100)}.${String(submission.amount % 100).padStart(2, "0")}`;
+  elements.amount.value = displayAmountFromMinorUnits(submission.amount, submission.currency);
   elements.currency.value = submission.currency;
   elements.outcome.value = tokenByStoredOutcome[submission.outcome];
-  renderUncertain();
+  currentPayment = null;
+  moveUi(UI_EVENTS.RESULT_UNCERTAIN);
 }
 
 elements.form.addEventListener("submit", (event) => {
@@ -451,6 +554,10 @@ elements.form.addEventListener("submit", (event) => {
 });
 elements.retry.addEventListener("click", () => void submitPayment());
 elements.newPayment.addEventListener("click", resetCheckout);
+for (const field of [elements.reference, elements.amount]) {
+  field.addEventListener("input", renderUi);
+}
+elements.currency.addEventListener("change", renderUi);
 for (const button of document.querySelectorAll("[data-language]")) {
   button.addEventListener("click", () => setLanguage(button.dataset.language));
 }

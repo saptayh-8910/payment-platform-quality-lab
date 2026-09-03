@@ -5,7 +5,10 @@ Feature: Multilingual test checkout
   @critical @smoke
   Scenario: English JPY payment is authorized
     Given the checkout is open in English
-    When the customer submits reference "order-browser-001" for "2500" JPY with outcome Approve
+    When the customer enters reference "order-browser-001" for "2500" JPY with outcome Approve
+    Then the order preview shows reference "order-browser-001" and amount "¥2,500"
+    And the payment action says "Pay ¥2,500"
+    When the customer submits the entered payment
     Then the result says "Payment authorized"
     And the result shows "¥2,500" and status "Authorized"
     And the payment has one ledger entry and one webhook event
@@ -16,6 +19,8 @@ Feature: Multilingual test checkout
     When the customer enters reference "注文-東京-001" for "2500" JPY with outcome Approve
     And switches the checkout to Japanese
     Then the entered reference "注文-東京-001" and amount "2500" remain
+    And the order preview shows reference "注文-東京-001" and amount "￥2,500"
+    And the payment action says "￥2,500を支払う"
     When the customer submits the entered payment
     Then the result says "決済が承認されました" in Japanese
     And the result keeps reference "注文-東京-001" and amount "￥2,500"
@@ -23,7 +28,10 @@ Feature: Multilingual test checkout
   @critical @currency
   Scenario: USD display amount is converted and shown exactly
     Given the checkout is open in English
-    When the customer submits reference "order-usd-001" for "25.50" USD with outcome Approve
+    When the customer enters reference "order-usd-001" for "25.50" USD with outcome Approve
+    Then the order preview shows reference "order-usd-001" and amount "$25.50"
+    And the payment action says "Pay $25.50"
+    When the customer submits the entered payment
     Then the result says "Payment authorized"
     And the result shows "$25.50" and status "Authorized"
     And the API stores 2550 minor units
@@ -39,10 +47,26 @@ Feature: Multilingual test checkout
     And browser storage contains no submitted payment token
     And the payment has zero ledger entries and one webhook event
 
-    Examples:
+    Examples: English desktop
       | language | title                  | amount | status   | guidance |
       | English  | Payment declined       | ¥2,500 | Declined | Available funds may be insufficient. Check the balance or try another payment method. |
+
+    @mobile
+    Examples: Japanese mobile
+      | language | title                  | amount | status   | guidance |
       | Japanese | 決済が拒否されました   | ￥2,500 | 拒否     | 利用可能残高が不足している可能性があります。残高を確認するか、別の決済方法をお試しください。 |
+
+  @critical @trust-boundary
+  Scenario: Simulator controls stay outside the customer checkout
+    Given the checkout is open in English
+    Then the test-environment warning is visible
+    And the outcome selector belongs only to the simulator controls
+    And the checkout shows a synthetic method without credential fields
+    When the customer selects the InsufficientFunds outcome without submitting
+    Then the customer checkout does not reveal the planned outcome
+    And the browser sent zero payment requests
+    And the browser requested no external resources
+    And the browser loaded no failed presentation resources
 
   @negative @reliability
   Scenario: Declined result does not resubmit without customer action
