@@ -13,7 +13,7 @@ from payment_quality_lab.main import create_app
 def app(tmp_path) -> Iterator[FastAPI]:
     """Create an application backed by a new database for every test."""
     database_path = tmp_path / "payment-test.db"
-    application = create_app(f"sqlite:///{database_path}")
+    application = create_app(f"sqlite:///{database_path}", initialize_schema=True)
     yield application
     application.state.engine.dispose()
 

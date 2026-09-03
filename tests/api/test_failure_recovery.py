@@ -20,6 +20,7 @@ def reliability_app(tmp_path) -> Iterator[FastAPI]:
     application = create_app(
         f"sqlite:///{tmp_path / 'api-reliability.db'}",
         enable_failure_injection=True,
+        initialize_schema=True,
     )
     yield application
     application.state.engine.dispose()

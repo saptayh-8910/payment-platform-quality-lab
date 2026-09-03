@@ -21,6 +21,7 @@ from payment_quality_lab.persistence.database import (
     create_session_factory,
     session_scope,
 )
+from payment_quality_lab.persistence.migrations import require_current_schema
 from payment_quality_lab.services.payments import (
     ConcurrentPaymentUpdateError,
     FailureInjectionDisabledError,
@@ -54,14 +55,22 @@ def create_app(
     *,
     enable_failure_injection: bool = False,
     webhook_signing_secret: str = DEFAULT_WEBHOOK_SIGNING_SECRET,
+    initialize_schema: bool = False,
 ) -> FastAPI:
-    """Construct an isolated application instance."""
+    """Construct an application, optionally creating an isolated test schema."""
     resolved_url = database_url or os.getenv(
         "PAYMENT_LAB_DATABASE_URL", "sqlite:///payment_lab.db"
     )
     engine = create_database_engine(resolved_url)
     session_factory = create_session_factory(engine)
-    Base.metadata.create_all(engine)
+    if initialize_schema:
+        Base.metadata.create_all(engine)
+    else:
+        try:
+            require_current_schema(engine)
+        except Exception:
+            engine.dispose()
+            raise
 
     app = FastAPI(
         title="Payment Platform Quality Lab",
@@ -329,12 +338,14 @@ def create_app(
     return app
 
 
-app = create_app()
+def create_runtime_app() -> FastAPI:
+    """Construct the local service only after its schema has been migrated."""
+    return create_app(initialize_schema=False)
 
 
 def run() -> None:
     """Run the local development server."""
-    uvicorn.run("payment_quality_lab.main:app", host="127.0.0.1", port=8000)
+    uvicorn.run(create_runtime_app(), host="127.0.0.1", port=8000)
 
 
 if __name__ == "__main__":
