@@ -6,7 +6,7 @@
 |---|---|
 | Enhancement | 2: Asynchronous payment confirmation |
 | Repository position | After Enhancement 1 and UX-01 are implemented, reviewed, and closed |
-| Status | Approved plan; customer-facing English and Japanese wording remains pending owner review; no scenario in this document is passed evidence |
+| Status | In progress; migration foundation scenarios passed; customer-facing English and Japanese wording remains pending owner review; no asynchronous-confirmation scenario is passed evidence |
 | Test basis | [Payment requirements](docs/payment-requirements.md), [risk-based test plan](docs/test-plan.md), and completed idempotency, webhook, and reconciliation evidence from Milestones 4–5 |
 | Revision note | Revised after review. Renamed from an earlier "Milestone 9" draft, which incorrectly reused closed milestone numbering and the term "settlement," which already has a distinct meaning in this project |
 

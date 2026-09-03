@@ -315,6 +315,7 @@ See:
 - [UX-01 exploratory session](docs/quality/enhancements/ux1-checkout-experience/exploratory-session.md)
 - [UX-01 quality report](docs/quality/enhancements/ux1-checkout-experience/quality-report.md)
 - [Enhancement 2 asynchronous confirmation scenario catalog](docs/quality/enhancements/e2-asynchronous-payment-confirmation/scenario-catalog.md)
+- [Enhancement 2 database migration foundation report](docs/quality/enhancements/e2-asynchronous-payment-confirmation/migration-foundation-report.md)
 - [Defect reports](docs/defects/)
 
 ## License

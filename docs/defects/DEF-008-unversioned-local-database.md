@@ -13,7 +13,7 @@ new idempotency and decline columns that the existing database did not contain.
 | Enhancement | UX-01 interactive follow-up |
 | Found by | Manual checkout submission through the running full-stack application |
 | Severity | High for local reliability; no production system is claimed |
-| Status | Resolution in E2 migration-foundation pull request |
+| Status | Resolved in E2 migration-foundation pull request #19 |
 
 ## Reproduction
 
@@ -44,7 +44,7 @@ The project had no schema-version record or migration command. Local startup
 treated table creation as if it also provided database upgrades, but SQLAlchemy
 `create_all()` does not migrate an existing table.
 
-## Planned resolution
+## Resolution
 
 - Add versioned database migrations and an explicit migration command.
 - Adopt only the known older schema shape; reject unknown shapes.
@@ -55,9 +55,28 @@ treated table creation as if it also provided database upgrades, but SQLAlchemy
 - Add tests for fresh setup, legacy upgrade, repeatability, rejection, startup,
   and synchronous regression.
 
+The migration runner now uses two explicit revisions. The first creates a fresh
+schema or adopts only the known unversioned table shape. The second upgrades the
+legacy lifecycle-idempotency and decline fields. The local service validates the
+recorded head revision before starting and names the migration command when the
+database is outdated.
+
+## Regression evidence
+
+`tests/integration/test_database_migrations.py` proves fresh setup, a repeated
+upgrade, pre-start rejection, unknown-schema rejection, and a data-preserving
+legacy upgrade. Its legacy case keeps two payments, one ledger effect, two
+webhook events, two projections, and two idempotency records. An existing
+authorization key then replays the original payment ID after migration.
+
+The complete local gate passed 268 Python tests at 89.87 percent branch-aware
+coverage, 45 Node tests, TypeScript checking, and 11 Chromium scenarios with
+100 steps. Pull request #19 passed all six GitHub checks.
+
 ## Evidence boundary
 
 The browser displayed the intended safe general error and did not expose the
 database exception. That presentation behavior was correct, but it did not make
 the backend failure acceptable. The migration tests and complete regression
-gate will determine whether this defect is resolved.
+gate now pass. This known schema condition stops before the HTTP service becomes
+ready.
