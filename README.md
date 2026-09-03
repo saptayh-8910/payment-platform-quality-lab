@@ -68,7 +68,7 @@ accepted lifecycle operation records one immutable ledger entry, increments the
 payment version once, and commits its idempotency record in the same transaction.
 Invalid transitions and over-refunds leave payment and ledger state unchanged.
 
-The current automated baseline contains 264 pytest tests with 96.57%
+The current automated baseline contains 268 pytest tests with 89.87%
 branch-aware coverage, 45 Node tests, and 11 Cucumber scenarios with 100 steps.
 GitHub Actions runs the Python suite on Python 3.12 and 3.14 and runs the
 complete browser gate in Chromium.
@@ -176,8 +176,14 @@ python -m pytest
 Start the service:
 
 ```bash
+payment-quality-lab-migrate
 payment-quality-lab
 ```
+
+The migration command creates a new database or upgrades a known older local
+schema without deleting its payment evidence. Service startup checks the schema
+revision and stops with an actionable message if migration is still required.
+For another database location, set `PAYMENT_LAB_DATABASE_URL` for both commands.
 
 The API documentation is then available at
 <http://127.0.0.1:8000/docs>.
@@ -290,6 +296,7 @@ See:
 - [Idempotency and failure recovery](docs/payment-reliability.md)
 - [Webhook delivery and consumption](docs/webhook-delivery.md)
 - [Settlement and reconciliation](docs/reconciliation.md)
+- [Database migrations](docs/database-migrations.md)
 - [Risk-based test plan](docs/test-plan.md)
 - [Quality evidence and milestone reports](docs/quality/README.md)
 - [Final project quality summary](docs/quality/project-summary.md)
@@ -307,6 +314,7 @@ See:
 - [UX-01 checkout experience scenario catalog](docs/quality/enhancements/ux1-checkout-experience/scenario-catalog.md)
 - [UX-01 exploratory session](docs/quality/enhancements/ux1-checkout-experience/exploratory-session.md)
 - [UX-01 quality report](docs/quality/enhancements/ux1-checkout-experience/quality-report.md)
+- [Enhancement 2 asynchronous confirmation scenario catalog](docs/quality/enhancements/e2-asynchronous-payment-confirmation/scenario-catalog.md)
 - [Defect reports](docs/defects/)
 
 ## License

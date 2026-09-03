@@ -76,7 +76,7 @@ risk to its evidence.
 
 ## Automated evidence at project close
 
-- 264 pytest tests with 96.57% branch-aware coverage.
+- 268 pytest tests with 89.87% branch-aware coverage.
 - 45 Node money, decline-guidance, UI-state, derived-view, and contrast tests.
 - 11 Cucumber scenarios with 100 passing steps.
 - Chromium acceptance evidence for English, Japanese, responsive, keyboard,
