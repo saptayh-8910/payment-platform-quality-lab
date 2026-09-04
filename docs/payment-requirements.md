@@ -6,9 +6,10 @@ This document defines the initial behavioral contract for a simulated payment
 platform. It is intentionally provider-neutral and contains no real payment or
 cardholder data.
 
-Authorization, capture, cancellation, refund, concurrency hardening,
-deterministic failure recovery, webhook delivery, and reconciliation are
-implemented.
+Authorization, asynchronous payment creation, capture, cancellation, refund,
+concurrency hardening, deterministic failure recovery, webhook delivery, and
+reconciliation are implemented. Confirmation processing and expiry execution
+remain later reviewed work.
 
 ## 2. Domain model
 
@@ -21,6 +22,8 @@ A payment has:
 - an amount expressed as a positive integer in minor units;
 - an ISO 4217 currency code;
 - a lifecycle status;
+- a payment flow identifying synchronous or asynchronous confirmation;
+- a unique payment reference and expiry time for an asynchronous payment;
 - a normalized decline reason when the lifecycle status is `DECLINED`;
 - authorized, captured, and refunded totals;
 - created and updated timestamps;
@@ -35,6 +38,7 @@ and `1000 USD` means 10.00 US dollars.
 The supported states are:
 
 - `AUTHORIZED`
+- `AWAITING_PAYMENT`
 - `DECLINED`
 - `CAPTURED`
 - `PARTIALLY_REFUNDED`
@@ -47,6 +51,7 @@ The initial transition model is:
 |---|---|---|
 | New request | Authorize successfully | `AUTHORIZED` |
 | New request | Authorization declined | `DECLINED` |
+| New asynchronous request | Request later confirmation | `AWAITING_PAYMENT` |
 | `AUTHORIZED` | Capture full authorized amount | `CAPTURED` |
 | `AUTHORIZED` | Cancel | `CANCELLED` |
 | `CAPTURED` | Refund less than captured amount | `PARTIALLY_REFUNDED` |
@@ -82,6 +87,26 @@ change.
   prevent future capture.
 - Repeating a successful operation with the same idempotency key must not create
   another ledger entry.
+
+### 3.2.1 Asynchronous payment creation
+
+- The provider-neutral `tok_awaiting_confirmation` simulator input creates an
+  `ASYNCHRONOUS_CONFIRMATION` payment in `AWAITING_PAYMENT`.
+- The synthetic input is fingerprinted for idempotency and is not retained.
+- The payment receives a unique `ref_` reference and expires 72 hours after the
+  injected creation time.
+- The 72-hour duration represents a delayed customer action. Automated tests
+  move the clock directly and do not wait for this interval.
+- Creation produces no authorization, capture, refund, or ledger effect.
+- Creation emits one `payment.confirmation_requested` event in the same
+  transaction as the payment and idempotency result.
+- An identical retry returns the original payment ID, reference, timestamps,
+  and expiry. Conflicting key reuse returns `409` without another effect.
+- `payment_flow` is descriptive metadata. It does not select a different
+  financial-invariant regime; every payment retains the shared
+  `captured_amount <= authorized_amount` rule.
+- Confirmation, expiry, and cancellation from `AWAITING_PAYMENT` are outside
+  this implementation slice until their scenarios are separately reviewed.
 
 ### 3.3 Refunds
 

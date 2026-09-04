@@ -37,6 +37,17 @@ class PaymentRecord(Base):
             name="ck_payment_refunded_within_captured",
         ),
         CheckConstraint(
+            "payment_flow IN ('SYNCHRONOUS', 'ASYNCHRONOUS_CONFIRMATION')",
+            name="ck_payment_flow_supported",
+        ),
+        CheckConstraint(
+            "(payment_flow = 'SYNCHRONOUS' AND payment_reference IS NULL "
+            "AND expires_at IS NULL) OR "
+            "(payment_flow = 'ASYNCHRONOUS_CONFIRMATION' "
+            "AND payment_reference IS NOT NULL AND expires_at IS NOT NULL)",
+            name="ck_payment_flow_metadata",
+        ),
+        CheckConstraint(
             "(status = 'DECLINED' AND decline_reason IS NOT NULL AND "
             "decline_reason IN ("
             "'insufficient_funds', 'limit_exceeded', 'expired_payment_method', "
@@ -52,6 +63,13 @@ class PaymentRecord(Base):
     amount: Mapped[int] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(3))
     status: Mapped[str] = mapped_column(String(32), index=True)
+    payment_flow: Mapped[str] = mapped_column(String(32), default="SYNCHRONOUS")
+    payment_reference: Mapped[str | None] = mapped_column(
+        String(36), unique=True, nullable=True
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     decline_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
     authorized_amount: Mapped[int] = mapped_column(Integer, default=0)
     captured_amount: Mapped[int] = mapped_column(Integer, default=0)
@@ -192,6 +210,11 @@ class MerchantPaymentProjectionRecord(Base):
     amount: Mapped[int] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(3))
     status: Mapped[str] = mapped_column(String(32), index=True)
+    payment_flow: Mapped[str] = mapped_column(String(32), default="SYNCHRONOUS")
+    payment_reference: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     decline_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
     authorized_amount: Mapped[int] = mapped_column(Integer)
     captured_amount: Mapped[int] = mapped_column(Integer)

@@ -78,9 +78,26 @@ def test_fresh_migration_is_repeatable_and_supports_runtime_startup(
                 "payment_method_token": "tok_approved",
             },
         )
+        delayed_response = client.post(
+            "/payments",
+            headers={"Idempotency-Key": "migration-async-0001"},
+            json={
+                "merchant_reference": "migration-async-order",
+                "amount": 3000,
+                "currency": "JPY",
+                "payment_method_token": "tok_awaiting_confirmation",
+            },
+        )
     app.state.engine.dispose()
     assert response.status_code == 201
     assert response.json()["status"] == "AUTHORIZED"
+    assert response.json()["payment_flow"] == "SYNCHRONOUS"
+    assert response.json()["payment_reference"] is None
+    assert response.json()["expires_at"] is None
+    assert delayed_response.status_code == 201
+    assert delayed_response.json()["status"] == "AWAITING_PAYMENT"
+    assert delayed_response.json()["payment_flow"] == "ASYNCHRONOUS_CONFIRMATION"
+    assert delayed_response.json()["payment_reference"].startswith("ref_")
 
 
 def test_runtime_rejects_an_unversioned_database_before_serving(
@@ -180,12 +197,32 @@ def test_known_legacy_schema_is_upgraded_without_losing_evidence(
     engine = create_database_engine(url)
     schema = inspect(engine)
     assert {column["name"] for column in schema.get_columns("payments")} >= {
-        "decline_reason"
+        "decline_reason",
+        "payment_flow",
+        "payment_reference",
+        "expires_at",
     }
     assert {column["name"] for column in schema.get_columns("idempotency_records")} >= {
         "operation",
         "response_snapshot",
     }
+    assert {
+        "payment_flow",
+        "payment_reference",
+        "expires_at",
+    }.issubset(
+        {
+            column["name"]
+            for column in schema.get_columns("merchant_payment_projections")
+        }
+    )
+    assert {
+        constraint["name"] for constraint in schema.get_check_constraints("payments")
+    } >= {"ck_payment_flow_supported", "ck_payment_flow_metadata"}
+    assert any(
+        constraint["column_names"] == ["payment_reference"]
+        for constraint in schema.get_unique_constraints("payments")
+    )
     with create_session_factory(engine)() as session:
         assert session.scalar(select(func.count()).select_from(PaymentRecord)) == 2
         assert session.scalar(select(func.count()).select_from(LedgerEntryRecord)) == 1
@@ -198,8 +235,18 @@ def test_known_legacy_schema_is_upgraded_without_losing_evidence(
             == 2
         )
         assert session.get(PaymentRecord, declined_id).decline_reason == "unknown"
+        assert {
+            payment.payment_flow for payment in session.scalars(select(PaymentRecord))
+        } == {"SYNCHRONOUS"}
+        assert all(
+            payment.payment_reference is None and payment.expires_at is None
+            for payment in session.scalars(select(PaymentRecord))
+        )
         declined_projection = session.get(MerchantPaymentProjectionRecord, declined_id)
         assert declined_projection.decline_reason == "unknown"
+        assert declined_projection.payment_flow == "SYNCHRONOUS"
+        assert declined_projection.payment_reference is None
+        assert declined_projection.expires_at is None
         claims = list(session.scalars(select(IdempotencyRecord)))
         assert {claim.operation for claim in claims} == {"AUTHORIZE"}
         assert all(claim.response_snapshot is not None for claim in claims)
@@ -221,6 +268,9 @@ def test_known_legacy_schema_is_upgraded_without_losing_evidence(
     assert replay.status_code == 200
     assert replay.headers["Idempotent-Replayed"] == "true"
     assert replay.json()["id"] == approved_id
+    assert replay.json()["payment_flow"] == "SYNCHRONOUS"
+    assert replay.json()["payment_reference"] is None
+    assert replay.json()["expires_at"] is None
 
 
 def rebuild_as_known_legacy(path: Path) -> None:

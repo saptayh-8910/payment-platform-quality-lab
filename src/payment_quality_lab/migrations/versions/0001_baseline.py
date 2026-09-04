@@ -17,9 +17,19 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 KNOWN_LEGACY_MISSING_COLUMNS = {
-    "payments": {"decline_reason"},
+    "payments": {
+        "decline_reason",
+        "payment_flow",
+        "payment_reference",
+        "expires_at",
+    },
     "idempotency_records": {"operation", "response_snapshot"},
-    "merchant_payment_projections": {"decline_reason"},
+    "merchant_payment_projections": {
+        "decline_reason",
+        "payment_flow",
+        "payment_reference",
+        "expires_at",
+    },
 }
 
 

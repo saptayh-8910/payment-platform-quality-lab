@@ -10,6 +10,8 @@ from payment_quality_lab.domain.payment import (
     AuthorizationDecision,
     Currency,
     DeclineReason,
+    DelayedPaymentDecision,
+    PaymentFlow,
     PaymentStatus,
 )
 from payment_quality_lab.persistence.models import (
@@ -47,7 +49,7 @@ class AuthorizePaymentRequest(BaseModel):
     merchant_reference: str = Field(min_length=1, max_length=64)
     amount: int = Field(gt=0, le=999_999_999)
     currency: Currency
-    payment_method_token: AuthorizationDecision
+    payment_method_token: AuthorizationDecision | DelayedPaymentDecision
 
 
 class RefundPaymentRequest(BaseModel):
@@ -66,6 +68,9 @@ class PaymentResponse(BaseModel):
     amount: int
     currency: Currency
     status: PaymentStatus
+    payment_flow: PaymentFlow
+    payment_reference: str | None
+    expires_at: datetime | None
     decline_reason: DeclineReason | None
     authorized_amount: int
     captured_amount: int
@@ -83,6 +88,11 @@ class PaymentResponse(BaseModel):
             amount=payment.amount,
             currency=Currency(payment.currency),
             status=PaymentStatus(payment.status),
+            payment_flow=PaymentFlow(payment.payment_flow),
+            payment_reference=payment.payment_reference,
+            expires_at=(
+                _as_utc(payment.expires_at) if payment.expires_at is not None else None
+            ),
             decline_reason=(
                 DeclineReason(payment.decline_reason)
                 if payment.decline_reason is not None
@@ -230,6 +240,9 @@ class MerchantProjectionResponse(BaseModel):
     amount: int
     currency: Currency
     status: PaymentStatus
+    payment_flow: PaymentFlow
+    payment_reference: str | None
+    expires_at: datetime | None
     decline_reason: DeclineReason | None
     authorized_amount: int
     captured_amount: int
@@ -249,6 +262,13 @@ class MerchantProjectionResponse(BaseModel):
             amount=projection.amount,
             currency=Currency(projection.currency),
             status=PaymentStatus(projection.status),
+            payment_flow=PaymentFlow(projection.payment_flow),
+            payment_reference=projection.payment_reference,
+            expires_at=(
+                _as_utc(projection.expires_at)
+                if projection.expires_at is not None
+                else None
+            ),
             decline_reason=(
                 DeclineReason(projection.decline_reason)
                 if projection.decline_reason is not None

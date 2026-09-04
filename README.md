@@ -7,7 +7,8 @@ processing real payments or cardholder data.
 
 ## Project goals
 
-- Model authorization, capture, cancellation, decline, and refund behavior.
+- Model synchronous authorization and asynchronous-confirmation creation, plus
+  capture, cancellation, decline, and refund behavior.
 - Prevent duplicate financial effects through idempotency controls.
 - Exercise signed webhooks, duplicate delivery, retries, and out-of-order events.
 - Verify monetary precision for USD and zero-decimal JPY transactions.
@@ -61,14 +62,14 @@ Test tooling:
 
 ## Current status
 
-The service implements deterministic authorization and six detailed,
-provider-neutral decline outcomes plus full capture, pre-capture cancellation,
-and partial or full refunds. Every
+The service implements deterministic authorization, asynchronous payment
+creation, and six detailed, provider-neutral decline outcomes plus full
+capture, pre-capture cancellation, and partial or full refunds. Every
 accepted lifecycle operation records one immutable ledger entry, increments the
 payment version once, and commits its idempotency record in the same transaction.
 Invalid transitions and over-refunds leave payment and ledger state unchanged.
 
-The current automated baseline contains 268 pytest tests with 89.87%
+The current automated baseline contains 282 pytest tests with 86.50%
 branch-aware coverage, 45 Node tests, and 11 Cucumber scenarios with 100 steps.
 GitHub Actions runs the Python suite on Python 3.12 and 3.14 and runs the
 complete browser gate in Chromium.
@@ -161,6 +162,14 @@ UX-01 redesigns the same checkout without changing payment contracts. Its
 approved catalog, local exploratory session, and closing quality report record
 the visual hierarchy, state-model decision, Japanese font control, accessibility
 targets, regression mapping, and current limitations.
+
+Enhancement 2 now has its migration foundation and first functional slice. A
+request using the asynchronous simulator option creates one
+`AWAITING_PAYMENT` record with a unique reference and a deadline 72 hours after
+the injected creation time. It creates no ledger entry and emits one
+`payment.confirmation_requested` event. Identical retries return the original
+reference and deadline. Confirmation processing, expiry, anomalies, races,
+reconciliation changes, and customer messaging remain reviewed future slices.
 
 ## Quick start
 
@@ -269,6 +278,8 @@ Only deterministic synthetic tokens are accepted:
 - `tok_declined_invalid` stores `invalid_payment_method`.
 - `tok_declined_unknown` stores the safe `unknown` fallback.
 - Legacy `tok_declined` remains an API alias for `unknown`.
+- `tok_awaiting_confirmation` creates a payment reference and 72-hour deadline
+  without creating a financial ledger effect.
 
 Every decline creates no financial ledger effect. These strings are simulator
 controls, not real payment credentials, and are not retained in payment,

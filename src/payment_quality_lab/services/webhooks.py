@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from payment_quality_lab.domain.payment import (
     Currency,
     DeclineReason,
+    PaymentFlow,
     PaymentState,
     PaymentStatus,
 )
@@ -38,6 +39,7 @@ class WebhookEventType(StrEnum):
     """Payment changes exposed to the simulated merchant consumer."""
 
     AUTHORIZED = "payment.authorized"
+    CONFIRMATION_REQUESTED = "payment.confirmation_requested"
     DECLINED = "payment.declined"
     CAPTURED = "payment.captured"
     CANCELLED = "payment.cancelled"
@@ -120,6 +122,9 @@ class WebhookPaymentSnapshot:
     amount: int
     currency: str
     status: str
+    payment_flow: str
+    payment_reference: str | None
+    expires_at: datetime | None
     decline_reason: str | None
     authorized_amount: int
     captured_amount: int
@@ -189,8 +194,15 @@ def _payment_payload(payment: PaymentRecord) -> dict[str, Any]:
         "decline_reason": payment.decline_reason,
         "id": payment.id,
         "merchant_reference": payment.merchant_reference,
+        "payment_flow": payment.payment_flow,
+        "payment_reference": payment.payment_reference,
         "refunded_amount": payment.refunded_amount,
         "status": payment.status,
+        "expires_at": (
+            _format_datetime(payment.expires_at)
+            if payment.expires_at is not None
+            else None
+        ),
         "updated_at": _format_datetime(payment.updated_at),
         "version": payment.version,
     }
@@ -300,6 +312,29 @@ def _required_datetime(values: dict[str, Any], name: str) -> datetime:
         raise InvalidWebhookPayloadError(f"{name} must be an ISO 8601 time") from error
 
 
+def _optional_string(values: dict[str, Any], name: str) -> str | None:
+    value = values.get(name)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise InvalidWebhookPayloadError(f"{name} must be a non-empty string or null")
+    return value
+
+
+def _optional_datetime(values: dict[str, Any], name: str) -> datetime | None:
+    value = values.get(name)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise InvalidWebhookPayloadError(f"{name} must be an ISO 8601 time or null")
+    try:
+        return _as_utc(datetime.fromisoformat(value.replace("Z", "+00:00")))
+    except ValueError as error:
+        raise InvalidWebhookPayloadError(
+            f"{name} must be an ISO 8601 time or null"
+        ) from error
+
+
 def _decline_reason(values: dict[str, Any]) -> DeclineReason | None:
     if "decline_reason" not in values:
         raise InvalidWebhookPayloadError("decline_reason is required")
@@ -339,6 +374,13 @@ def parse_webhook_payload(payload: bytes) -> WebhookEnvelope:
     version = _required_integer(payment_values, "version")
     currency_value = _required_string(payment_values, "currency")
     status_value = _required_string(payment_values, "status")
+    payment_flow_value = payment_values.get(
+        "payment_flow", PaymentFlow.SYNCHRONOUS.value
+    )
+    if not isinstance(payment_flow_value, str):
+        raise InvalidWebhookPayloadError("payment_flow must be a string")
+    payment_reference = _optional_string(payment_values, "payment_reference")
+    expires_at = _optional_datetime(payment_values, "expires_at")
     decline_reason = _decline_reason(payment_values)
 
     if amount <= 0 or authorized_amount > amount:
@@ -348,8 +390,26 @@ def parse_webhook_payload(payload: bytes) -> WebhookEnvelope:
     try:
         Currency(currency_value)
         status = PaymentStatus(status_value)
+        payment_flow = PaymentFlow(payment_flow_value)
         if (status is PaymentStatus.DECLINED) != (decline_reason is not None):
             raise ValueError("Decline reason does not match payment status")
+        if payment_flow is PaymentFlow.SYNCHRONOUS:
+            if payment_reference is not None or expires_at is not None:
+                raise ValueError("Synchronous payment has delayed-flow metadata")
+        elif payment_reference is None or expires_at is None:
+            raise ValueError("Asynchronous payment metadata is incomplete")
+        if status is PaymentStatus.AWAITING_PAYMENT and (
+            payment_flow is not PaymentFlow.ASYNCHRONOUS_CONFIRMATION
+            or authorized_amount != 0
+            or captured_amount != 0
+            or refunded_amount != 0
+        ):
+            raise ValueError("Awaiting payment snapshot is inconsistent")
+        if (
+            event_type is WebhookEventType.CONFIRMATION_REQUESTED
+            and status is not PaymentStatus.AWAITING_PAYMENT
+        ):
+            raise ValueError("Confirmation request event has the wrong state")
         PaymentState(
             status=status,
             authorized_amount=authorized_amount,
@@ -370,6 +430,9 @@ def parse_webhook_payload(payload: bytes) -> WebhookEnvelope:
             amount=amount,
             currency=currency_value,
             status=status_value,
+            payment_flow=payment_flow_value,
+            payment_reference=payment_reference,
+            expires_at=expires_at,
             decline_reason=(
                 decline_reason.value if decline_reason is not None else None
             ),
@@ -387,11 +450,19 @@ def _projection_matches(
     projection: MerchantPaymentProjectionRecord,
     payment: WebhookPaymentSnapshot,
 ) -> bool:
+    expiry_matches = (projection.expires_at is None and payment.expires_at is None) or (
+        projection.expires_at is not None
+        and payment.expires_at is not None
+        and _as_utc(projection.expires_at) == _as_utc(payment.expires_at)
+    )
     return (
         projection.merchant_reference == payment.merchant_reference
         and projection.amount == payment.amount
         and projection.currency == payment.currency
         and projection.status == payment.status
+        and projection.payment_flow == payment.payment_flow
+        and projection.payment_reference == payment.payment_reference
+        and expiry_matches
         and projection.decline_reason == payment.decline_reason
         and projection.authorized_amount == payment.authorized_amount
         and projection.captured_amount == payment.captured_amount
@@ -410,6 +481,9 @@ def _apply_projection(
     projection.amount = payment.amount
     projection.currency = payment.currency
     projection.status = payment.status
+    projection.payment_flow = payment.payment_flow
+    projection.payment_reference = payment.payment_reference
+    projection.expires_at = payment.expires_at
     projection.decline_reason = payment.decline_reason
     projection.authorized_amount = payment.authorized_amount
     projection.captured_amount = payment.captured_amount
@@ -458,6 +532,9 @@ def consume_webhook(
             amount=envelope.payment.amount,
             currency=envelope.payment.currency,
             status=envelope.payment.status,
+            payment_flow=envelope.payment.payment_flow,
+            payment_reference=envelope.payment.payment_reference,
+            expires_at=envelope.payment.expires_at,
             decline_reason=envelope.payment.decline_reason,
             authorized_amount=envelope.payment.authorized_amount,
             captured_amount=envelope.payment.captured_amount,

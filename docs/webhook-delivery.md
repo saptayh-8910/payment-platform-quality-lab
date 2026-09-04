@@ -22,6 +22,7 @@ second event is created.
 The event types are:
 
 - `payment.authorized`
+- `payment.confirmation_requested`
 - `payment.declined`
 - `payment.captured`
 - `payment.cancelled`
@@ -29,6 +30,11 @@ The event types are:
 
 Partial and full refunds share one event type. The full payment snapshot shows
 the current refund total and status.
+
+`payment.confirmation_requested` means delayed-payment instructions were
+accepted and later confirmation is expected. Its completed-action name follows
+the other event names. It does not imply that every payment creation emits a
+generic creation event.
 
 ## Event body
 
@@ -38,6 +44,7 @@ Each event contains:
 - event type and UTC creation time;
 - payment ID and aggregate version;
 - full payment status and integer minor-unit totals; and
+- payment flow plus the reference and expiry for asynchronous payments; and
 - the normalized decline reason for a declined payment, or `null` for every
   non-declined payment.
 

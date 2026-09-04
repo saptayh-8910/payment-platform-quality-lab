@@ -1,5 +1,6 @@
 """Payment HTTP endpoints."""
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -58,7 +59,13 @@ def get_session() -> Session:  # pragma: no cover - replaced by app dependency
     raise RuntimeError("Database dependency is not configured")
 
 
+def get_payment_clock(request: Request) -> Callable[[], datetime]:
+    """Return the application clock used by payment-creation transactions."""
+    return request.app.state.payment_clock
+
+
 SessionDependency = Annotated[Session, Depends(get_session)]
+PaymentClockDependency = Annotated[Callable[[], datetime], Depends(get_payment_clock)]
 IdempotencyKey = Annotated[
     str,
     Header(alias="Idempotency-Key", min_length=8, max_length=128),
@@ -140,6 +147,7 @@ def create_payment(
     session: SessionDependency,
     response: Response,
     failure_point: FailurePointDependency,
+    clock: PaymentClockDependency,
 ) -> PaymentResponse:
     """Authorize or decline a payment using deterministic synthetic tokens."""
     outcome = authorize_payment(
@@ -152,6 +160,7 @@ def create_payment(
         ),
         idempotency_key=idempotency_key,
         failure_point=failure_point,
+        clock=clock,
     )
     if outcome.replayed:
         response.status_code = status.HTTP_200_OK

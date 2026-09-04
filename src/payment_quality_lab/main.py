@@ -1,7 +1,8 @@
 """FastAPI application factory and local entry point."""
 
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import uvicorn
@@ -56,6 +57,7 @@ def create_app(
     enable_failure_injection: bool = False,
     webhook_signing_secret: str = DEFAULT_WEBHOOK_SIGNING_SECRET,
     initialize_schema: bool = False,
+    payment_clock: Callable[[], datetime] | None = None,
 ) -> FastAPI:
     """Construct an application, optionally creating an isolated test schema."""
     resolved_url = database_url or os.getenv(
@@ -81,6 +83,7 @@ def create_app(
     app.state.session_factory = session_factory
     app.state.failure_injection_enabled = enable_failure_injection
     app.state.webhook_signing_secret = webhook_signing_secret
+    app.state.payment_clock = payment_clock or (lambda: datetime.now(UTC))
 
     def provide_session() -> Iterator[Session]:
         yield from session_scope(session_factory)

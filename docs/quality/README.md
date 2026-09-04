@@ -54,7 +54,7 @@ path.
 |---|---|---|---|---|
 | 1 | Detailed declined-payment outcomes | [Catalog](enhancements/e1-detailed-decline-outcomes/scenario-catalog.md) and [exploratory session](enhancements/e1-detailed-decline-outcomes/exploratory-session.md) | [Report](enhancements/e1-detailed-decline-outcomes/quality-report.md) | Complete |
 | UX-01 | Provider-neutral checkout experience | [Catalog](enhancements/ux1-checkout-experience/scenario-catalog.md) and [exploratory session](enhancements/ux1-checkout-experience/exploratory-session.md) | [Report](enhancements/ux1-checkout-experience/quality-report.md) | Complete |
-| 2 | Asynchronous payment confirmation | [Catalog](enhancements/e2-asynchronous-payment-confirmation/scenario-catalog.md) | [Migration foundation report](enhancements/e2-asynchronous-payment-confirmation/migration-foundation-report.md); confirmation closing report not yet executed | In progress: migration foundation complete |
+| 2 | Asynchronous payment confirmation | [Catalog](enhancements/e2-asynchronous-payment-confirmation/scenario-catalog.md) | [Migration foundation report](enhancements/e2-asynchronous-payment-confirmation/migration-foundation-report.md); confirmation closing report not yet executed | In progress: migration foundation and `CONF-01`/`CONF-04` creation slice complete |
 
 An approved enhancement catalog records intended behavior, not passed evidence.
 Closing reports record executed local and pull-request CI evidence.

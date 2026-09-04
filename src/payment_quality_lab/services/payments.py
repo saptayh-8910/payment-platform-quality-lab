@@ -2,8 +2,9 @@
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from uuid import uuid4
 
@@ -16,6 +17,9 @@ from payment_quality_lab.domain.payment import (
     AuthorizationDecision,
     Currency,
     DeclineReason,
+    DelayedPaymentDecision,
+    PaymentFlow,
+    PaymentMethodDecision,
     PaymentOperation,
     PaymentState,
     PaymentStatus,
@@ -66,6 +70,14 @@ class SimulatedPaymentTimeoutError(TimeoutError):
         super().__init__(f"Simulated payment timeout at {point.value}")
 
 
+def _read_clock(clock: Callable[[], datetime] | None) -> datetime:
+    """Read one timezone-aware instant and normalize it to UTC."""
+    current = clock() if clock is not None else datetime.now(UTC)
+    if current.tzinfo is None or current.utcoffset() is None:
+        raise ValueError("Payment clock must return a timezone-aware datetime")
+    return current.astimezone(UTC)
+
+
 @dataclass(frozen=True, slots=True)
 class PaymentSnapshot:
     """Immutable payment representation stored for exact idempotent replay."""
@@ -75,6 +87,9 @@ class PaymentSnapshot:
     amount: int
     currency: str
     status: str
+    payment_flow: str
+    payment_reference: str | None
+    expires_at: datetime | None
     decline_reason: str | None
     authorized_amount: int
     captured_amount: int
@@ -92,6 +107,9 @@ class PaymentSnapshot:
             amount=payment.amount,
             currency=payment.currency,
             status=payment.status,
+            payment_flow=payment.payment_flow,
+            payment_reference=payment.payment_reference,
+            expires_at=payment.expires_at,
             decline_reason=payment.decline_reason,
             authorized_amount=payment.authorized_amount,
             captured_amount=payment.captured_amount,
@@ -113,8 +131,13 @@ class PaymentSnapshot:
                 "decline_reason": self.decline_reason,
                 "id": self.id,
                 "merchant_reference": self.merchant_reference,
+                "payment_flow": self.payment_flow,
+                "payment_reference": self.payment_reference,
                 "refunded_amount": self.refunded_amount,
                 "status": self.status,
+                "expires_at": (
+                    self.expires_at.isoformat() if self.expires_at is not None else None
+                ),
                 "updated_at": self.updated_at.isoformat(),
                 "version": self.version,
             },
@@ -132,6 +155,17 @@ class PaymentSnapshot:
             amount=int(values["amount"]),
             currency=str(values["currency"]),
             status=str(values["status"]),
+            payment_flow=str(values.get("payment_flow", PaymentFlow.SYNCHRONOUS.value)),
+            payment_reference=(
+                str(values["payment_reference"])
+                if values.get("payment_reference") is not None
+                else None
+            ),
+            expires_at=(
+                datetime.fromisoformat(str(values["expires_at"]))
+                if values.get("expires_at") is not None
+                else None
+            ),
             decline_reason=(
                 DeclineReason(str(values["decline_reason"])).value
                 if values.get("decline_reason") is not None
@@ -153,7 +187,7 @@ class AuthorizationCommand:
     merchant_reference: str
     amount: int
     currency: Currency
-    payment_method_token: AuthorizationDecision
+    payment_method_token: PaymentMethodDecision
 
     def fingerprint(self) -> str:
         """Return a stable digest without storing the synthetic token."""
@@ -225,6 +259,7 @@ def _claim_idempotency_key(
     idempotency_key: str,
     fingerprint: str,
     operation: str,
+    created_at: datetime | None = None,
 ) -> tuple[IdempotencyRecord | None, PaymentSnapshot | None]:
     """Claim a key before mutation or replay a concurrently committed result."""
     replay = _find_idempotent_snapshot(
@@ -241,7 +276,7 @@ def _claim_idempotency_key(
         operation=operation,
         payment_id=None,
         response_snapshot=None,
-        created_at=datetime.now(UTC),
+        created_at=created_at or datetime.now(UTC),
     )
     session.add(claim)
     try:
@@ -259,7 +294,7 @@ def _claim_idempotency_key(
     return claim, None
 
 
-def _commit_financial_outcome(
+def _commit_payment_outcome(
     session: Session,
     *,
     claim: IdempotencyRecord,
@@ -267,7 +302,7 @@ def _commit_financial_outcome(
     event_type: WebhookEventType,
     failure_point: FailurePoint | None,
 ) -> None:
-    """Commit financial state, response snapshot, and outbox event atomically."""
+    """Commit payment state, replay snapshot, and outbox event atomically."""
     try:
         session.flush()
         create_outbox_event(session, payment=payment, event_type=event_type)
@@ -294,14 +329,17 @@ def authorize_payment(
     command: AuthorizationCommand,
     idempotency_key: str,
     failure_point: FailurePoint | None = None,
+    clock: Callable[[], datetime] | None = None,
 ) -> AuthorizationOutcome:
     """Create one authorization outcome atomically or replay the original."""
+    now = _read_clock(clock)
     fingerprint = command.fingerprint()
     claim, replay = _claim_idempotency_key(
         session,
         idempotency_key=idempotency_key,
         fingerprint=fingerprint,
         operation="AUTHORIZE",
+        created_at=now,
     )
     if replay is not None:
         return AuthorizationOutcome(payment=replay, replayed=True)
@@ -313,6 +351,7 @@ def authorize_payment(
             command=command,
             claim=claim,
             failure_point=failure_point,
+            now=now,
         )
     except Exception:
         if session.in_transaction():
@@ -326,21 +365,46 @@ def _execute_claimed_authorization(
     command: AuthorizationCommand,
     claim: IdempotencyRecord,
     failure_point: FailurePoint | None,
+    now: datetime,
 ) -> AuthorizationOutcome:
     """Validate and commit an authorization after its key is claimed."""
 
-    result = authorize(command.amount, command.payment_method_token)
-    now = datetime.now(UTC)
+    is_delayed = (
+        command.payment_method_token is DelayedPaymentDecision.AWAIT_CONFIRMATION
+    )
+    if is_delayed:
+        status = PaymentStatus.AWAITING_PAYMENT
+        payment_flow = PaymentFlow.ASYNCHRONOUS_CONFIRMATION
+        payment_reference = f"ref_{uuid4().hex}"
+        expires_at = now + timedelta(hours=72)
+        decline_reason = None
+        authorized_amount = 0
+        event_type = WebhookEventType.CONFIRMATION_REQUESTED
+    else:
+        assert isinstance(command.payment_method_token, AuthorizationDecision)
+        result = authorize(command.amount, command.payment_method_token)
+        status = result.status
+        payment_flow = PaymentFlow.SYNCHRONOUS
+        payment_reference = None
+        expires_at = None
+        decline_reason = result.decline_reason
+        authorized_amount = result.authorized_amount
+        event_type = (
+            WebhookEventType.AUTHORIZED
+            if result.status is PaymentStatus.AUTHORIZED
+            else WebhookEventType.DECLINED
+        )
     payment = PaymentRecord(
         id=f"pay_{uuid4().hex}",
         merchant_reference=command.merchant_reference,
         amount=command.amount,
         currency=command.currency.value,
-        status=result.status.value,
-        decline_reason=(
-            result.decline_reason.value if result.decline_reason is not None else None
-        ),
-        authorized_amount=result.authorized_amount,
+        status=status.value,
+        payment_flow=payment_flow.value,
+        payment_reference=payment_reference,
+        expires_at=expires_at,
+        decline_reason=(decline_reason.value if decline_reason is not None else None),
+        authorized_amount=authorized_amount,
         captured_amount=0,
         refunded_amount=0,
         version=1,
@@ -352,27 +416,23 @@ def _execute_claimed_authorization(
     # transaction and commit for the complete financial outcome.
     session.flush()
 
-    if result.authorized_amount:
+    if authorized_amount:
         session.add(
             LedgerEntryRecord(
                 id=f"led_{uuid4().hex}",
                 payment_id=payment.id,
                 operation="AUTHORIZATION",
-                amount=result.authorized_amount,
+                amount=authorized_amount,
                 currency=command.currency.value,
                 created_at=now,
             )
         )
 
-    _commit_financial_outcome(
+    _commit_payment_outcome(
         session,
         claim=claim,
         payment=payment,
-        event_type=(
-            WebhookEventType.AUTHORIZED
-            if result.status is PaymentStatus.AUTHORIZED
-            else WebhookEventType.DECLINED
-        ),
+        event_type=event_type,
         failure_point=failure_point,
     )
     return AuthorizationOutcome(payment=payment, replayed=False)
@@ -461,7 +521,7 @@ def _execute_claimed_lifecycle_operation(
             created_at=now,
         )
     )
-    _commit_financial_outcome(
+    _commit_payment_outcome(
         session,
         claim=claim,
         payment=payment,
