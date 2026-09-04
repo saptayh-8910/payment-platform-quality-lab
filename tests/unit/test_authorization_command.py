@@ -1,6 +1,10 @@
 """Unit tests for stable idempotency request fingerprints."""
 
-from payment_quality_lab.domain.payment import AuthorizationDecision, Currency
+from payment_quality_lab.domain.payment import (
+    AuthorizationDecision,
+    Currency,
+    DelayedPaymentDecision,
+)
 from payment_quality_lab.services.payments import AuthorizationCommand
 
 
@@ -27,5 +31,11 @@ def test_financially_distinct_commands_have_different_fingerprints() -> None:
     assert command(merchant_reference="order-2").fingerprint() != original
     assert (
         command(payment_method_token=AuthorizationDecision.DECLINE).fingerprint()
+        != original
+    )
+    assert (
+        command(
+            payment_method_token=DelayedPaymentDecision.AWAIT_CONFIRMATION
+        ).fingerprint()
         != original
     )

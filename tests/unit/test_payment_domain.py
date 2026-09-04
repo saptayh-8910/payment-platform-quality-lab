@@ -5,6 +5,7 @@ import pytest
 from payment_quality_lab.domain.payment import (
     AuthorizationDecision,
     DeclineReason,
+    PaymentState,
     PaymentStatus,
     authorize,
 )
@@ -60,3 +61,21 @@ def test_declined_authorization_maps_reason_without_authorized_amount(
 def test_non_positive_amount_is_rejected_without_a_result(amount: int) -> None:
     with pytest.raises(ValueError, match="must be positive"):
         authorize(amount, AuthorizationDecision.APPROVE)
+
+
+def test_awaiting_payment_uses_the_existing_financial_invariants() -> None:
+    state = PaymentState(
+        status=PaymentStatus.AWAITING_PAYMENT,
+        authorized_amount=0,
+        captured_amount=0,
+        refunded_amount=0,
+    )
+
+    assert state.authorized_amount == state.captured_amount == 0
+    with pytest.raises(ValueError, match="Captured amount cannot exceed"):
+        PaymentState(
+            status=PaymentStatus.AWAITING_PAYMENT,
+            authorized_amount=0,
+            captured_amount=1,
+            refunded_amount=0,
+        )
