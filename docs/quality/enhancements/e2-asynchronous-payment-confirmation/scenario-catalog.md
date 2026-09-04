@@ -176,8 +176,10 @@ invariant, not around it — see "Confirmed state" below.
 - The token selects `payment_flow = ASYNCHRONOUS_CONFIRMATION` but is not
   retained after the request fingerprint has been calculated.
 - A newly accepted request returns `201 Created`, `AWAITING_PAYMENT`, a unique
-  `payment_reference`, and `expires_at = created_at + 30 minutes` using the
-  injected server clock.
+  `payment_reference`, and `expires_at = created_at + 72 hours` using the
+  injected server clock. The 72-hour interval is a deliberate simulator policy
+  for a delayed customer action, not a concession to test speed; automated
+  tests advance the injected clock without waiting in real time.
 - An identical payment-creation idempotency replay returns the original
   payment reference and expiry rather than generating a second open reference.
 - The checkout presents this as a clearly labelled simulator option and never
@@ -355,8 +357,11 @@ confirmation received after the cutoff cannot change an earlier report.
 
 ### Lifecycle webhook events
 
-- Creating a delayed payment creates one `PAYMENT_AWAITING` event so the
-  merchant projection can observe the initial state.
+- Creating a delayed payment creates one `payment.confirmation_requested`
+  event so the merchant projection can observe that payment instructions were
+  accepted and confirmation is now expected. The completed-action name follows
+  the existing webhook convention without implying that every payment creation
+  emits a generic `payment.created` event.
 - Applying an on-time confirmation creates one `PAYMENT_CAPTURED` event.
 - Expiry, whether initiated by `expire_due_payments` or a late confirmation,
   creates one `PAYMENT_EXPIRED` event.
@@ -394,10 +399,10 @@ confirmation received after the cutoff cannot change an earlier report.
 
 | ID | Situation | Expected result | Priority | Level |
 |---|---|---|---|---|
-| `CONF-01` | A delayed request is accepted | `AWAITING_PAYMENT`, unique reference, deterministic `expires_at`, zero financial effect, one awaiting event | High | API and integration |
+| `CONF-01` | A delayed request is accepted | `AWAITING_PAYMENT`, unique reference, deterministic `expires_at`, zero financial effect, one `payment.confirmation_requested` event | High | API and integration |
 | `CONF-02` | Confirmation arrives on time with matching amount and currency | Atomic transition to `CAPTURED`; one `CONFIRMATION_CAPTURE` entry; one captured event | Critical | Integration |
 | `CONF-03` | No confirmation arrives before expiry | `expire_due_payments` transitions to `EXPIRED`; zero financial effect; one webhook event | Critical | Integration |
-| `CONF-04` | An identical delayed-payment creation request is replayed | Original payment ID, reference, and expiry are returned; no second open reference or awaiting event | Critical | API and integration |
+| `CONF-04` | An identical delayed-payment creation request is replayed | Original payment ID, reference, and expiry are returned; no second open reference or `payment.confirmation_requested` event | Critical | API and integration |
 | `LATE-01` | A late confirmation finds the payment already `EXPIRED` | Remains `EXPIRED`; one late disposition exists; no duplicate expiry event or financial effect | Critical | Integration |
 | `LATE-02` | A late confirmation finds the payment still `AWAITING_PAYMENT` | Atomically expires it, records the late disposition, and creates the one expiry event; no financial effect | Critical | Integration |
 | `DUP-01` | Same applied `confirmation_id` and payload replay | Original safe response is replayed; no second inbox record, ledger entry, or webhook event | Critical | Integration |
@@ -517,8 +522,8 @@ Scenario Outline: Awaiting-payment guidance follows the selected language
 |---|---|
 | Terminology | "Payment confirmation" and "confirmation anomaly"; "settlement" is reserved for its existing meaning |
 | Repository position | Enhancement 2, after Enhancement 1 is fully closed |
-| Flow identity | Persist `payment_flow`; continue not storing the synthetic input token |
-| Delayed simulator input | Use `tok_awaiting_confirmation`; generate a unique reference and a 30-minute expiry from the injected clock |
+| Flow identity | Persist `payment_flow`; continue not storing the synthetic input token. Treat the field as descriptive metadata, never as a switch for a second financial-invariant regime |
+| Delayed simulator input | Use `tok_awaiting_confirmation`; generate a unique reference and a 72-hour expiry from the injected clock. Tests move the clock instantly, so this duration is a business-facing simulator policy rather than a test-speed shortcut |
 | Confirmed state | Reuse `CAPTURED`; set both amount balances atomically and record one `CONFIRMATION_CAPTURE` ledger effect |
 | Confirmation identity | Durable inbox record keyed by `confirmation_id`; identical replay returns the original result and conflicting reuse returns `409` |
 | Endpoint security | Reuse provider-neutral signature verification; reject missing or invalid signatures before storing or changing anything |
@@ -529,7 +534,7 @@ Scenario Outline: Awaiting-payment guidance follows the selected language
 | Amount/currency mismatch | Store distinct dispositions; no financial effect and no retry-inducing error response |
 | Reconciliation | Separate payment outcome from per-confirmation disposition; keep both independent of settlement classification |
 | Reconciliation cutoff | Include confirmation evidence only through the batch cutoff; later confirmations cannot rewrite an earlier report |
-| Lifecycle events | Awaiting, captured, expired, and cancelled states each produce one event; anomalies and replays do not |
+| Lifecycle events | Creation emits `payment.confirmation_requested`; later captured, expired, and cancelled states each produce one completed-action event; anomalies and replays do not |
 | Cancellation | Allowed from `AWAITING_PAYMENT`; no ledger entry; later confirmation receives `already_resolved` |
 | Duplicate open references | Explicitly deferred to an order-management model outside this enhancement |
 
