@@ -15,6 +15,7 @@ class PaymentStatus(StrEnum):
     """Supported payment lifecycle states."""
 
     AUTHORIZED = "AUTHORIZED"
+    AWAITING_PAYMENT = "AWAITING_PAYMENT"
     DECLINED = "DECLINED"
     CAPTURED = "CAPTURED"
     PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED"
@@ -33,6 +34,22 @@ class AuthorizationDecision(StrEnum):
     DECLINE_VERIFICATION = "tok_declined_verification"
     DECLINE_INVALID = "tok_declined_invalid"
     DECLINE_UNKNOWN = "tok_declined_unknown"
+
+
+class DelayedPaymentDecision(StrEnum):
+    """Provider-neutral simulator input for delayed confirmation."""
+
+    AWAIT_CONFIRMATION = "tok_awaiting_confirmation"
+
+
+class PaymentFlow(StrEnum):
+    """How a payment reaches its financial outcome."""
+
+    SYNCHRONOUS = "SYNCHRONOUS"
+    ASYNCHRONOUS_CONFIRMATION = "ASYNCHRONOUS_CONFIRMATION"
+
+
+type PaymentMethodDecision = AuthorizationDecision | DelayedPaymentDecision
 
 
 class DeclineReason(StrEnum):
