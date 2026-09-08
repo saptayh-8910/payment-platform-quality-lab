@@ -2,10 +2,10 @@
 
 ## Purpose
 
-The application stores payment, ledger, idempotency, webhook, projection, and
-reconciliation evidence in SQLite. A schema change must preserve that evidence
-or stop clearly. Creating missing tables is not a safe substitute for upgrading
-existing tables.
+The application stores payment, ledger, idempotency, confirmation, webhook,
+projection, and reconciliation evidence in SQLite. A schema change must
+preserve that evidence or stop clearly. Creating missing tables is not a safe
+substitute for upgrading existing tables.
 
 ## Local workflow
 
@@ -45,6 +45,9 @@ failure.
 - Starting the HTTP service against an unversioned or outdated database stops
   before the server is ready and names the required migration command.
 - Repeating the upgrade command at the current revision is safe.
+- The confirmation revision adds a durable inbox without rewriting existing
+  payments. Its downgrade is blocked because removing the table could discard
+  financially relevant anomaly and replay evidence.
 
 ## Downgrade boundary
 

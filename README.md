@@ -7,8 +7,8 @@ processing real payments or cardholder data.
 
 ## Project goals
 
-- Model synchronous authorization and asynchronous-confirmation creation, plus
-  capture, cancellation, decline, and refund behavior.
+- Model synchronous authorization and asynchronous confirmation, plus capture,
+  cancellation, decline, and refund behavior.
 - Prevent duplicate financial effects through idempotency controls.
 - Exercise signed webhooks, duplicate delivery, retries, and out-of-order events.
 - Verify monetary precision for USD and zero-decimal JPY transactions.
@@ -63,14 +63,15 @@ Test tooling:
 ## Current status
 
 The service implements deterministic authorization, asynchronous payment
-creation, and six detailed, provider-neutral decline outcomes plus full
-capture, pre-capture cancellation, and partial or full refunds. Every
+creation and confirmation, and six detailed, provider-neutral decline outcomes
+plus full capture, pre-capture cancellation, and partial or full refunds. Every
 accepted lifecycle operation records one immutable ledger entry, increments the
 payment version once, and commits its idempotency record in the same transaction.
 Invalid transitions and over-refunds leave payment and ledger state unchanged.
 
-The current automated baseline contains 282 pytest tests with 86.50%
-branch-aware coverage, 45 Node tests, and 11 Cucumber scenarios with 100 steps.
+The current automated baseline contains 316 pytest tests with branch-aware
+coverage above the required 85% gate, 45 Node tests, and 11 Cucumber scenarios
+with 100 steps.
 GitHub Actions runs the Python suite on Python 3.12 and 3.14 and runs the
 complete browser gate in Chromium.
 
@@ -163,13 +164,22 @@ approved catalog, local exploratory session, and closing quality report record
 the visual hierarchy, state-model decision, Japanese font control, accessibility
 targets, regression mapping, and current limitations.
 
-Enhancement 2 now has its migration foundation and first functional slice. A
-request using the asynchronous simulator option creates one
+Enhancement 2 now has its migration foundation, creation slice, and confirmation
+processing core. A request using the asynchronous simulator option creates one
 `AWAITING_PAYMENT` record with a unique reference and a deadline 72 hours after
 the injected creation time. It creates no ledger entry and emits one
 `payment.confirmation_requested` event. Identical retries return the original
-reference and deadline. Confirmation processing, expiry, anomalies, races,
-reconciliation changes, and customer messaging remain reviewed future slices.
+reference and deadline.
+
+A correctly signed confirmation receives a server-controlled receipt time and
+one final internal disposition. A matching on-time confirmation atomically sets
+both financial balances, creates one `CONFIRMATION_CAPTURE` ledger entry, and
+emits one captured event. Late, mismatched, unknown, duplicate, and
+already-resolved confirmations cannot create another financial effect. The
+external response remains a generic acknowledgement while an internal endpoint
+provides the retained diagnostic evidence. Scheduled expiry, race resolution,
+cancellation from the awaiting state, reconciliation changes, and customer
+messaging remain reviewed future slices.
 
 ## Quick start
 
@@ -327,6 +337,7 @@ See:
 - [UX-01 quality report](docs/quality/enhancements/ux1-checkout-experience/quality-report.md)
 - [Enhancement 2 asynchronous confirmation scenario catalog](docs/quality/enhancements/e2-asynchronous-payment-confirmation/scenario-catalog.md)
 - [Enhancement 2 database migration foundation report](docs/quality/enhancements/e2-asynchronous-payment-confirmation/migration-foundation-report.md)
+- [Enhancement 2 confirmation processing report](docs/quality/enhancements/e2-asynchronous-payment-confirmation/confirmation-processing-report.md)
 - [Defect reports](docs/defects/)
 
 ## License

@@ -27,6 +27,7 @@ The event types are:
 - `payment.captured`
 - `payment.cancelled`
 - `payment.refunded`
+- `payment.expired`
 
 Partial and full refunds share one event type. The full payment snapshot shows
 the current refund total and status.
@@ -35,6 +36,11 @@ the current refund total and status.
 accepted and later confirmation is expected. Its completed-action name follows
 the other event names. It does not imply that every payment creation emits a
 generic creation event.
+
+`payment.captured` is also used when a matching delayed confirmation creates a
+capture. `payment.expired` records the one terminal transition produced by a
+late confirmation. Neither mismatched nor duplicate confirmation attempts emit
+another lifecycle event.
 
 ## Event body
 

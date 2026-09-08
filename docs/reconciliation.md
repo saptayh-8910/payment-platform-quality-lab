@@ -65,8 +65,11 @@ Each payment result also shows two checks outside settlement classification.
 ### Ledger check
 
 The report compares authorization, capture, and refund totals in the payment
-aggregate with totals calculated from immutable ledger entries. A difference is
-reported as `mismatched` with both values shown.
+aggregate with totals calculated from immutable ledger entries. A
+`CONFIRMATION_CAPTURE` contributes once to both the authorized and captured
+totals because the delayed flow records one atomic financial event rather than
+inventing a separate authorization. A difference is reported as `mismatched`
+with both values shown.
 
 ### Webhook consumer check
 
