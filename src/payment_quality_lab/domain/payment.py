@@ -21,6 +21,7 @@ class PaymentStatus(StrEnum):
     PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED"
     REFUNDED = "REFUNDED"
     CANCELLED = "CANCELLED"
+    EXPIRED = "EXPIRED"
 
 
 class AuthorizationDecision(StrEnum):
@@ -92,6 +93,7 @@ class PaymentOperation(StrEnum):
     CAPTURE = "CAPTURE"
     CANCEL = "CANCEL"
     REFUND = "REFUND"
+    CONFIRMATION_CAPTURE = "CONFIRMATION_CAPTURE"
 
 
 class InvalidPaymentTransitionError(ValueError):
@@ -172,6 +174,24 @@ def capture(state: PaymentState) -> PaymentState:
         status=PaymentStatus.CAPTURED,
         authorized_amount=state.authorized_amount,
         captured_amount=state.authorized_amount,
+        refunded_amount=0,
+    )
+
+
+def capture_confirmation(state: PaymentState, amount: int) -> PaymentState:
+    """Atomically recognize and capture a confirmed delayed payment."""
+    if state.status is not PaymentStatus.AWAITING_PAYMENT:
+        raise InvalidPaymentTransitionError(
+            PaymentOperation.CONFIRMATION_CAPTURE,
+            state.status,
+        )
+    if amount <= 0:
+        raise ValueError("Confirmed amount must be positive")
+
+    return PaymentState(
+        status=PaymentStatus.CAPTURED,
+        authorized_amount=amount,
+        captured_amount=amount,
         refunded_amount=0,
     )
 

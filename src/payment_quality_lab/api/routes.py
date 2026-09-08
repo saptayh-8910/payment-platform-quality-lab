@@ -5,12 +5,16 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Request, Response, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from payment_quality_lab.api.schemas import (
     AuthorizePaymentRequest,
     LedgerEntryResponse,
     MerchantProjectionResponse,
+    PaymentConfirmationDiagnosticResponse,
+    PaymentConfirmationRequest,
+    PaymentConfirmationResponse,
     PaymentResponse,
     ReconciliationReportResponse,
     ReconciliationRequest,
@@ -23,6 +27,14 @@ from payment_quality_lab.api.schemas import (
     WebhookEventResponse,
 )
 from payment_quality_lab.persistence.models import SettlementBatchRecord
+from payment_quality_lab.services.confirmations import (
+    ConfirmationCommand,
+    InvalidConfirmationPayloadError,
+    get_confirmation,
+    process_confirmation,
+    read_confirmation_clock,
+    verify_confirmation_signature,
+)
 from payment_quality_lab.services.payments import (
     AuthorizationCommand,
     FailureInjectionDisabledError,
@@ -64,8 +76,16 @@ def get_payment_clock(request: Request) -> Callable[[], datetime]:
     return request.app.state.payment_clock
 
 
+def get_confirmation_clock(request: Request) -> Callable[[], datetime]:
+    """Return the trusted clock used to timestamp confirmation receipt."""
+    return request.app.state.confirmation_clock
+
+
 SessionDependency = Annotated[Session, Depends(get_session)]
 PaymentClockDependency = Annotated[Callable[[], datetime], Depends(get_payment_clock)]
+ConfirmationClockDependency = Annotated[
+    Callable[[], datetime], Depends(get_confirmation_clock)
+]
 IdempotencyKey = Annotated[
     str,
     Header(alias="Idempotency-Key", min_length=8, max_length=128),
@@ -85,6 +105,10 @@ ConsumerFaultHeader = Annotated[
 WebhookSignature = Annotated[
     str,
     Header(alias="Webhook-Signature", min_length=1),
+]
+ConfirmationSignature = Annotated[
+    str | None,
+    Header(alias="Confirmation-Signature"),
 ]
 
 
@@ -268,6 +292,66 @@ def retrieve_ledger(
         LedgerEntryResponse.from_record(entry)
         for entry in get_ledger_entries(session, payment_id)
     ]
+
+
+@router.post(
+    "/payment-confirmations",
+    response_model=PaymentConfirmationResponse,
+    tags=["payment-confirmations"],
+)
+async def receive_payment_confirmation(
+    request: Request,
+    session: SessionDependency,
+    response: Response,
+    clock: ConfirmationClockDependency,
+    signature: ConfirmationSignature = None,
+) -> PaymentConfirmationResponse:
+    """Authenticate, classify, and durably apply a payment confirmation."""
+    body = await request.body()
+    received_at = read_confirmation_clock(clock)
+    verify_confirmation_signature(
+        body,
+        signature_header=signature,
+        secret=request.app.state.confirmation_signing_secret,
+        received_at=received_at,
+    )
+    try:
+        payload = PaymentConfirmationRequest.model_validate_json(body)
+    except ValidationError as error:
+        raise InvalidConfirmationPayloadError(
+            "Confirmation payload does not match the required contract"
+        ) from error
+
+    outcome = process_confirmation(
+        session,
+        command=ConfirmationCommand(
+            confirmation_id=payload.confirmation_id,
+            payment_reference=payload.payment_reference,
+            amount=payload.amount,
+            currency=payload.currency,
+        ),
+        received_at=received_at,
+    )
+    if outcome.replayed:
+        response.headers["Idempotent-Replayed"] = "true"
+    return PaymentConfirmationResponse.model_validate_json(
+        outcome.confirmation.response_snapshot
+    )
+
+
+@router.get(
+    "/internal/payment-confirmations/{confirmation_id}",
+    response_model=PaymentConfirmationDiagnosticResponse,
+    tags=["diagnostics"],
+)
+def retrieve_payment_confirmation(
+    confirmation_id: str,
+    session: SessionDependency,
+) -> PaymentConfirmationDiagnosticResponse:
+    """Retrieve the internal disposition without changing payment state."""
+    return PaymentConfirmationDiagnosticResponse.from_record(
+        get_confirmation(session, confirmation_id)
+    )
 
 
 @router.get(

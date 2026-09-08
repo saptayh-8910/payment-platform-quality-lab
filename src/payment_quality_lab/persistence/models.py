@@ -200,6 +200,42 @@ class ProcessedWebhookRecord(Base):
     processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class PaymentConfirmationRecord(Base):
+    """Durable, minimal evidence for one authenticated confirmation."""
+
+    __tablename__ = "payment_confirmations"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_confirmation_amount_positive"),
+        CheckConstraint(
+            "currency IN ('JPY', 'USD')",
+            name="ck_confirmation_currency_supported",
+        ),
+        CheckConstraint(
+            "disposition IN ("
+            "'applied', 'late', 'amount_mismatch', 'currency_mismatch', "
+            "'unknown_reference', 'already_resolved')",
+            name="ck_confirmation_disposition_supported",
+        ),
+    )
+
+    confirmation_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    request_fingerprint: Mapped[str] = mapped_column(String(64))
+    payment_reference: Mapped[str] = mapped_column(String(36), index=True)
+    amount: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(3))
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        index=True,
+    )
+    disposition: Mapped[str] = mapped_column(String(32), index=True)
+    payment_id: Mapped[str | None] = mapped_column(
+        ForeignKey("payments.id", ondelete="RESTRICT"),
+        index=True,
+        nullable=True,
+    )
+    response_snapshot: Mapped[str] = mapped_column(Text)
+
+
 class MerchantPaymentProjectionRecord(Base):
     """Merchant-facing payment view updated only by accepted webhooks."""
 

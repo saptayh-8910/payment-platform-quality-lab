@@ -178,6 +178,9 @@ def calculate_ledger_totals(
             authorized += entry.amount
         elif entry.operation == "CAPTURE":
             captured += entry.amount
+        elif entry.operation == "CONFIRMATION_CAPTURE":
+            authorized += entry.amount
+            captured += entry.amount
         elif entry.operation == "REFUND":
             refunded += entry.amount
     return LedgerTotals(
