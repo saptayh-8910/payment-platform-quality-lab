@@ -6,7 +6,7 @@
 |---|---|
 | Enhancement | 2: Asynchronous payment confirmation |
 | Repository position | After Enhancement 1 and UX-01 are implemented, reviewed, and closed |
-| Status | In progress; migration foundation scenarios passed; customer-facing English and Japanese wording remains pending owner review; no asynchronous-confirmation scenario is passed evidence |
+| Status | In progress; migration, creation, signed processing, replay, late, mismatch, unknown-reference, already-resolved, and privacy scenarios have executable evidence; scheduled expiry, forced race, cancellation, reconciliation expansion, localization, and closeout remain |
 | Test basis | [Payment requirements](docs/payment-requirements.md), [risk-based test plan](docs/test-plan.md), and completed idempotency, webhook, and reconciliation evidence from Milestones 4–5 |
 | Revision note | Revised after review. Renamed from an earlier "Milestone 9" draft, which incorrectly reused closed milestone numbering and the term "settlement," which already has a distinct meaning in this project |
 
@@ -262,8 +262,8 @@ Confirmation cases:
   applied,
   late, mismatched, unknown-reference, and already-resolved confirmations, so
   an external sender is not encouraged to retry a permanent business result.
-- An identical replay returns the original safe response and an
-  `Idempotent-Replay: true` header.
+- An identical replay returns the original safe response and the existing
+  `Idempotent-Replayed: true` header.
 - Reusing a `confirmation_id` with a different payload returns `409 Conflict`.
 - A malformed payload returns `422 Unprocessable Entity`.
 - A missing or invalid signature returns `401 Unauthorized` and creates no
@@ -487,34 +487,32 @@ Scenario Outline: Awaiting-payment guidance follows the selected language
     | Japanese |
 ```
 
-## Planned implementation sequence
+## Implementation sequence
 
-1. Add the persisted payment flow, unique payment reference, expiry time,
-   `AWAITING_PAYMENT` / `EXPIRED` states, and initial awaiting webhook event.
-   Tests: `CONF-01`, `CONF-04`.
-2. Add the signed confirmation contract, durable inbox,
-   `confirmation_id`-based idempotency, safe response contract, and focused
-   signature checks. Tests: `DUP-01`, `DUP-02`, `DUP-03`, `SEC-C01`,
-   `SEC-C02`.
-3. Add the atomic confirmation transition and `CONFIRMATION_CAPTURE` ledger
-   interpretation. Tests: `CONF-02`, `REC-C03`.
-4. Add `expire_due_payments` and the shared late-confirmation expiry path with
-   injected time. Tests: `CONF-03`, `LATE-01`, `LATE-02`.
-5. Add anomaly dispositions for mismatched, unknown-reference,
-   already-captured, and cancelled confirmations. Tests: `MISM-01`,
-   `MISM-02`, `UNK-01`, `CAP-01`.
-6. Add durable-receipt-time race resolution with an atomic conditional
+1. Completed: add persisted payment flow, unique payment reference, expiry
+   time, `AWAITING_PAYMENT`, and the initial awaiting webhook event. Tests:
+   `CONF-01`, `CONF-04`.
+2. Completed as one end-to-end boundary: add signed confirmation intake,
+   durable inbox, `confirmation_id` replay protection, safe responses, atomic
+   matching capture, late handling, and classifications possible from the
+   currently implemented states. Tests: `CONF-02`, `DUP-01`, `DUP-02`,
+   `DUP-03`, `MISM-01`, `MISM-02`, `UNK-01`, `CAP-01`, `LATE-01`, `LATE-02`,
+   `SEC-C01`, `SEC-C02`, `REC-C03`, `PRIV-C01`.
+3. Add `expire_due_payments` using the same expiry transition and injected
+   time. Test: `CONF-03`.
+4. Add durable-receipt-time race resolution with an atomic conditional
    lifecycle update. Tests: `RACE-01`.
-7. Add cancellation and its lifecycle event. Tests: `CANC-01`.
-8. Extend reconciliation with separate payment outcomes, event dispositions,
+5. Add cancellation and its lifecycle event. Test: `CANC-01`, including the
+   remaining cancelled-payment form of `already_resolved`.
+6. Extend reconciliation with separate payment outcomes, event dispositions,
    currency-separated anomaly reporting, and cutoff behavior. Tests:
    `REC-C01`, `REC-C02`, `REC-C03`, `REC-C04`.
-9. Add English and Japanese messaging, pending owner review of exact
+7. Add English and Japanese messaging, pending owner review of exact
    wording. Tests: `LOC-C01`.
-10. Run the privacy checks and a focused exploratory session on whether the
-    stored evidence is minimal and whether messaging could mislead
-    a customer about the safety of their money.
-11. Run the complete project gate and write the closing quality report.
+8. Run a focused exploratory session on whether the stored evidence is minimal
+   and whether messaging could mislead a customer about the safety of their
+   money.
+9. Run the complete project gate and write the closing quality report.
 
 ## Decisions carried into this revision
 

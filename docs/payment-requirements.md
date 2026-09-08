@@ -6,10 +6,10 @@ This document defines the initial behavioral contract for a simulated payment
 platform. It is intentionally provider-neutral and contains no real payment or
 cardholder data.
 
-Authorization, asynchronous payment creation, capture, cancellation, refund,
-concurrency hardening, deterministic failure recovery, webhook delivery, and
-reconciliation are implemented. Confirmation processing and expiry execution
-remain later reviewed work.
+Authorization, asynchronous payment creation and confirmation, capture,
+cancellation, refund, concurrency hardening, deterministic failure recovery,
+webhook delivery, and reconciliation are implemented. Scheduled expiry and the
+confirmation-versus-expiry race remain later reviewed work.
 
 ## 2. Domain model
 
@@ -44,6 +44,7 @@ The supported states are:
 - `PARTIALLY_REFUNDED`
 - `REFUNDED`
 - `CANCELLED`
+- `EXPIRED`
 
 The initial transition model is:
 
@@ -52,6 +53,8 @@ The initial transition model is:
 | New request | Authorize successfully | `AUTHORIZED` |
 | New request | Authorization declined | `DECLINED` |
 | New asynchronous request | Request later confirmation | `AWAITING_PAYMENT` |
+| `AWAITING_PAYMENT` | Matching confirmation before expiry | `CAPTURED` |
+| `AWAITING_PAYMENT` | Confirmation at or after expiry | `EXPIRED` |
 | `AUTHORIZED` | Capture full authorized amount | `CAPTURED` |
 | `AUTHORIZED` | Cancel | `CANCELLED` |
 | `CAPTURED` | Refund less than captured amount | `PARTIALLY_REFUNDED` |
@@ -105,8 +108,35 @@ change.
 - `payment_flow` is descriptive metadata. It does not select a different
   financial-invariant regime; every payment retains the shared
   `captured_amount <= authorized_amount` rule.
-- Confirmation, expiry, and cancellation from `AWAITING_PAYMENT` are outside
-  this implementation slice until their scenarios are separately reviewed.
+- The separate confirmation identity protects this inbound event from replay;
+  it does not reuse the client payment-operation idempotency key.
+
+### 3.2.2 Asynchronous payment confirmation
+
+- The confirmation sender supplies a unique confirmation ID, payment reference,
+  positive integer amount, and supported currency.
+- `Confirmation-Signature` covers the timestamp and exact raw request body with
+  the shared HMAC-SHA256 format. The confirmation boundary uses its own
+  synthetic secret.
+- Missing, malformed, stale, future, or incorrect signatures return `401`
+  before the body is parsed or any evidence is stored.
+- The server assigns `received_at` from an injected clock. Caller-supplied time
+  is not accepted.
+- A matching confirmation received before expiry changes the payment directly
+  from `AWAITING_PAYMENT` to `CAPTURED`. Authorized and captured amounts are set
+  together so the shared financial invariant remains valid.
+- The transaction creates one `CONFIRMATION_CAPTURE` ledger entry and one
+  `payment.captured` event. A partial failure rolls back every effect.
+- An identical confirmation replay returns the original generic acknowledgement
+  and creates nothing else. Reusing the ID with changed content returns `409`.
+- Late, amount-mismatched, currency-mismatched, unknown-reference, and
+  already-resolved confirmations receive an internal durable disposition but
+  no unintended financial effect.
+- A late confirmation can apply the shared transition to `EXPIRED`. The
+  separate scheduled-expiry operation and forced race test remain pending.
+- External responses contain only `accepted: true`. Internal classification is
+  retrieved separately so callers cannot probe payment state.
+- The raw request body and signature are not retained.
 
 ### 3.3 Refunds
 

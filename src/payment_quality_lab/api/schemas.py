@@ -17,12 +17,14 @@ from payment_quality_lab.domain.payment import (
 from payment_quality_lab.persistence.models import (
     LedgerEntryRecord,
     MerchantPaymentProjectionRecord,
+    PaymentConfirmationRecord,
     PaymentRecord,
     SettlementBatchRecord,
     SettlementRecord,
     WebhookDeliveryAttemptRecord,
     WebhookEventRecord,
 )
+from payment_quality_lab.services.confirmations import ConfirmationDisposition
 from payment_quality_lab.services.payments import PaymentSnapshot
 from payment_quality_lab.services.reconciliation import (
     CurrencyReconciliationTotal,
@@ -58,6 +60,50 @@ class RefundPaymentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     amount: int = Field(gt=0, le=999_999_999)
+
+
+class PaymentConfirmationRequest(BaseModel):
+    """Provider-neutral delayed-payment confirmation contract."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    confirmation_id: str = Field(pattern=r"^cnf_[0-9A-Za-z_-]{1,36}$")
+    payment_reference: str = Field(pattern=r"^ref_[0-9a-f]{32}$")
+    amount: int = Field(gt=0, le=999_999_999)
+    currency: Currency
+
+
+class PaymentConfirmationResponse(BaseModel):
+    """Safe acknowledgement that does not disclose internal classification."""
+
+    accepted: bool = True
+
+
+class PaymentConfirmationDiagnosticResponse(BaseModel):
+    """Internal evidence available to support and reconciliation workflows."""
+
+    confirmation_id: str
+    payment_reference: str
+    amount: int
+    currency: Currency
+    received_at: datetime
+    disposition: ConfirmationDisposition
+    payment_id: str | None
+
+    @classmethod
+    def from_record(
+        cls,
+        confirmation: PaymentConfirmationRecord,
+    ) -> "PaymentConfirmationDiagnosticResponse":
+        return cls(
+            confirmation_id=confirmation.confirmation_id,
+            payment_reference=confirmation.payment_reference,
+            amount=confirmation.amount,
+            currency=Currency(confirmation.currency),
+            received_at=_as_utc(confirmation.received_at),
+            disposition=ConfirmationDisposition(confirmation.disposition),
+            payment_id=confirmation.payment_id,
+        )
 
 
 class PaymentResponse(BaseModel):

@@ -29,6 +29,7 @@ from payment_quality_lab.persistence.models import (
     IdempotencyRecord,
     LedgerEntryRecord,
     MerchantPaymentProjectionRecord,
+    PaymentConfirmationRecord,
     PaymentRecord,
     WebhookEventRecord,
 )
@@ -217,6 +218,17 @@ def test_known_legacy_schema_is_upgraded_without_losing_evidence(
         }
     )
     assert {
+        "confirmation_id",
+        "request_fingerprint",
+        "payment_reference",
+        "amount",
+        "currency",
+        "received_at",
+        "disposition",
+        "payment_id",
+        "response_snapshot",
+    } == {column["name"] for column in schema.get_columns("payment_confirmations")}
+    assert {
         constraint["name"] for constraint in schema.get_check_constraints("payments")
     } >= {"ck_payment_flow_supported", "ck_payment_flow_metadata"}
     assert any(
@@ -233,6 +245,10 @@ def test_known_legacy_schema_is_upgraded_without_losing_evidence(
                 select(func.count()).select_from(MerchantPaymentProjectionRecord)
             )
             == 2
+        )
+        assert (
+            session.scalar(select(func.count()).select_from(PaymentConfirmationRecord))
+            == 0
         )
         assert session.get(PaymentRecord, declined_id).decline_reason == "unknown"
         assert {

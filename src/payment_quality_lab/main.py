@@ -23,6 +23,12 @@ from payment_quality_lab.persistence.database import (
     session_scope,
 )
 from payment_quality_lab.persistence.migrations import require_current_schema
+from payment_quality_lab.services.confirmations import (
+    ConfirmationIdConflictError,
+    ConfirmationNotFoundError,
+    InvalidConfirmationPayloadError,
+    InvalidConfirmationSignatureError,
+)
 from payment_quality_lab.services.payments import (
     ConcurrentPaymentUpdateError,
     FailureInjectionDisabledError,
@@ -48,6 +54,7 @@ from payment_quality_lab.services.webhooks import (
 )
 
 DEFAULT_WEBHOOK_SIGNING_SECRET = "whsec_local_synthetic_only"
+DEFAULT_CONFIRMATION_SIGNING_SECRET = "cnfsec_local_synthetic_only"
 CHECKOUT_DIRECTORY = Path(__file__).parent / "web" / "checkout"
 
 
@@ -56,8 +63,10 @@ def create_app(
     *,
     enable_failure_injection: bool = False,
     webhook_signing_secret: str = DEFAULT_WEBHOOK_SIGNING_SECRET,
+    confirmation_signing_secret: str = DEFAULT_CONFIRMATION_SIGNING_SECRET,
     initialize_schema: bool = False,
     payment_clock: Callable[[], datetime] | None = None,
+    confirmation_clock: Callable[[], datetime] | None = None,
 ) -> FastAPI:
     """Construct an application, optionally creating an isolated test schema."""
     resolved_url = database_url or os.getenv(
@@ -83,7 +92,10 @@ def create_app(
     app.state.session_factory = session_factory
     app.state.failure_injection_enabled = enable_failure_injection
     app.state.webhook_signing_secret = webhook_signing_secret
-    app.state.payment_clock = payment_clock or (lambda: datetime.now(UTC))
+    resolved_payment_clock = payment_clock or (lambda: datetime.now(UTC))
+    app.state.payment_clock = resolved_payment_clock
+    app.state.confirmation_clock = confirmation_clock or resolved_payment_clock
+    app.state.confirmation_signing_secret = confirmation_signing_secret
 
     def provide_session() -> Iterator[Session]:
         yield from session_scope(session_factory)
@@ -125,6 +137,54 @@ def create_app(
             content={
                 "code": "idempotency_conflict",
                 "message": "Idempotency key was already used for another request",
+            },
+        )
+
+    @app.exception_handler(ConfirmationIdConflictError)
+    async def confirmation_id_conflict(
+        _request: Request, _error: ConfirmationIdConflictError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "code": "confirmation_id_conflict",
+                "message": "Confirmation ID was already used for another payload",
+            },
+        )
+
+    @app.exception_handler(InvalidConfirmationSignatureError)
+    async def invalid_confirmation_signature(
+        _request: Request, error: InvalidConfirmationSignatureError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={
+                "code": "invalid_confirmation_signature",
+                "message": str(error),
+            },
+        )
+
+    @app.exception_handler(InvalidConfirmationPayloadError)
+    async def invalid_confirmation_payload(
+        _request: Request, error: InvalidConfirmationPayloadError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={
+                "code": "invalid_confirmation_payload",
+                "message": str(error),
+            },
+        )
+
+    @app.exception_handler(ConfirmationNotFoundError)
+    async def confirmation_not_found(
+        _request: Request, error: ConfirmationNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={
+                "code": "confirmation_not_found",
+                "message": f"Confirmation {error.args[0]} was not found",
             },
         )
 

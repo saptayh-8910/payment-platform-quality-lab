@@ -10,15 +10,19 @@ idempotency state.
 stateDiagram-v2
     [*] --> AUTHORIZED: approve
     [*] --> DECLINED: decline
+    [*] --> AWAITING_PAYMENT: request later confirmation
     AUTHORIZED --> CAPTURED: capture full amount
     AUTHORIZED --> CANCELLED: cancel
+    AWAITING_PAYMENT --> CAPTURED: matching on-time confirmation
+    AWAITING_PAYMENT --> EXPIRED: late confirmation
     CAPTURED --> PARTIALLY_REFUNDED: partial refund
     CAPTURED --> REFUNDED: full refund
     PARTIALLY_REFUNDED --> PARTIALLY_REFUNDED: partial refund
     PARTIALLY_REFUNDED --> REFUNDED: refund remaining amount
 ```
 
-Partial capture and authorization expiry are outside the current scope.
+Partial capture, scheduled delayed-payment expiry, and cancellation from the
+awaiting state are outside the current implemented scope.
 
 ## Decline reasons
 
@@ -48,12 +52,18 @@ that relationship. The legacy `tok_declined` input remains an alias for
 | Capture | `POST /payments/{id}/capture` | None | `AUTHORIZED` |
 | Cancel | `POST /payments/{id}/cancel` | None | `AUTHORIZED` |
 | Refund | `POST /payments/{id}/refund` | Positive integer `amount` | `CAPTURED`, `PARTIALLY_REFUNDED` |
+| Confirm delayed payment | `POST /payment-confirmations` | Confirmation ID, reference, amount, currency | Signed inbound request |
+| Inspect confirmation | `GET /internal/payment-confirmations/{confirmation_id}` | None | Internal diagnostic use |
 
-Every state-changing request requires an `Idempotency-Key` header. Equivalent
+Client-directed lifecycle requests require an `Idempotency-Key` header. Equivalent
 retries create no additional ledger effect or payment version. Reusing a key for
 a different payment, operation, or amount returns an idempotency conflict.
 The first accepted request stores an immutable response snapshot; later retries
 return that snapshot rather than the payment's current mutable state.
+
+Inbound delayed-payment confirmations use `Confirmation-Signature` plus their
+own stable `confirmation_id`. Identical confirmation replay returns the original
+safe acknowledgement. Conflicting content under the same ID returns `409`.
 
 ## Financial invariants
 
@@ -81,6 +91,7 @@ Ledger entries are append-only through the public service API:
 | `CAPTURE` | Reservation captured | Full authorized amount |
 | `CANCEL` | Reservation cancelled before capture | Authorized amount |
 | `REFUND` | Captured funds returned | Requested refund amount |
+| `CONFIRMATION_CAPTURE` | Delayed funds confirmed and captured atomically | Confirmed amount |
 
 The operation determines the accounting direction; all stored amounts remain
 positive integer minor units. Reconciliation will interpret these operations in

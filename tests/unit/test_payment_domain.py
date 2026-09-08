@@ -8,6 +8,7 @@ from payment_quality_lab.domain.payment import (
     PaymentState,
     PaymentStatus,
     authorize,
+    capture_confirmation,
 )
 
 
@@ -78,4 +79,50 @@ def test_awaiting_payment_uses_the_existing_financial_invariants() -> None:
             authorized_amount=0,
             captured_amount=1,
             refunded_amount=0,
+        )
+
+
+def test_confirmation_capture_sets_both_financial_balances_atomically() -> None:
+    result = capture_confirmation(
+        PaymentState(
+            status=PaymentStatus.AWAITING_PAYMENT,
+            authorized_amount=0,
+            captured_amount=0,
+            refunded_amount=0,
+        ),
+        2500,
+    )
+
+    assert result == PaymentState(
+        status=PaymentStatus.CAPTURED,
+        authorized_amount=2500,
+        captured_amount=2500,
+        refunded_amount=0,
+    )
+
+
+@pytest.mark.parametrize("amount", [0, -1])
+def test_confirmation_capture_rejects_non_positive_amount(amount: int) -> None:
+    with pytest.raises(ValueError, match="Confirmed amount must be positive"):
+        capture_confirmation(
+            PaymentState(
+                status=PaymentStatus.AWAITING_PAYMENT,
+                authorized_amount=0,
+                captured_amount=0,
+                refunded_amount=0,
+            ),
+            amount,
+        )
+
+
+def test_confirmation_capture_rejects_an_already_resolved_payment() -> None:
+    with pytest.raises(ValueError, match="Cannot CONFIRMATION_CAPTURE"):
+        capture_confirmation(
+            PaymentState(
+                status=PaymentStatus.CAPTURED,
+                authorized_amount=2500,
+                captured_amount=2500,
+                refunded_amount=0,
+            ),
+            2500,
         )

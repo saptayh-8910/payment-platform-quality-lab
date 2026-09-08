@@ -31,6 +31,7 @@ KNOWN_LEGACY_MISSING_COLUMNS = {
         "expires_at",
     },
 }
+KNOWN_LEGACY_MISSING_TABLES = {"payment_confirmations"}
 
 
 def upgrade() -> None:
@@ -44,15 +45,17 @@ def upgrade() -> None:
         Base.metadata.create_all(bind=bind)
         return
 
-    if existing_tables != expected_tables:
-        missing = sorted(expected_tables - existing_tables)
+    missing_tables = expected_tables - existing_tables
+    unsupported_missing = missing_tables - KNOWN_LEGACY_MISSING_TABLES
+    if unsupported_missing or existing_tables - expected_tables:
+        missing = sorted(missing_tables)
         unexpected = sorted(existing_tables - expected_tables)
         raise RuntimeError(
             "Unsupported unversioned database tables: "
             f"missing={missing}, unexpected={unexpected}"
         )
 
-    for table_name in sorted(expected_tables):
+    for table_name in sorted(existing_tables):
         expected_columns = {
             column.name for column in Base.metadata.tables[table_name].columns
         }

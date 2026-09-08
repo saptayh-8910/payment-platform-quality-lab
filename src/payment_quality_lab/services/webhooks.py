@@ -44,6 +44,7 @@ class WebhookEventType(StrEnum):
     CAPTURED = "payment.captured"
     CANCELLED = "payment.cancelled"
     REFUNDED = "payment.refunded"
+    EXPIRED = "payment.expired"
 
 
 class WebhookStatus(StrEnum):
