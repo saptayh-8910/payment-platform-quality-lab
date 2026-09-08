@@ -69,6 +69,17 @@ def test_cutoff_includes_entries_at_the_boundary_only() -> None:
     assert totals.net_captured == 1000
 
 
+def test_confirmation_capture_counts_as_authorized_and_captured_once() -> None:
+    totals = calculate_ledger_totals(
+        [ledger_entry("CONFIRMATION_CAPTURE", 2500, NOW, suffix="confirmation")]
+    )
+
+    assert totals.authorized == 2500
+    assert totals.captured == 2500
+    assert totals.refunded == 0
+    assert totals.net_captured == 2500
+
+
 @pytest.mark.parametrize(
     ("expected_amount", "records", "expected_classification", "observed"),
     [
