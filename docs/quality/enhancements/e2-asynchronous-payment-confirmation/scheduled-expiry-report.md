@@ -6,8 +6,9 @@
 |---|---|
 | Enhancement | 2: Asynchronous payment confirmation |
 | Slice | Scheduled expiry for unconfirmed delayed payments |
-| Result | Proceed to pull-request review; CI confirmation pending |
+| Result | Ready to merge; full pull-request CI passed |
 | Branch | `codex/e2-scheduled-expiry` |
+| Pull request | [#23](https://github.com/saptayh-8910/payment-platform-quality-lab/pull/23) |
 | Local execution date | 2026-09-10 |
 
 ## Executive summary
@@ -74,7 +75,7 @@ part of a batch changed after a failure. This slice tests each of those risks.
 | Cucumber-JS and Chromium regression | 11 scenarios and 100 steps passed |
 | Ruff lint and formatting | Passed |
 | Git diff check | Passed |
-| GitHub Actions pull-request gate | Pending |
+| GitHub Actions pull-request gate | Six checks passed across Python, Chromium, and performance workflows |
 
 ## Transaction and failure evidence
 
@@ -101,7 +102,7 @@ and retry contract.
 
 ## Recommendation
 
-Proceed to pull-request review for `CONF-03`. The local evidence supports the
+Proceed to merge `CONF-03`. The local and CI evidence supports the
 deadline rule, zero financial effect, one lifecycle event, repeat safety,
 deterministic bounded selection, and atomic rollback.
 
