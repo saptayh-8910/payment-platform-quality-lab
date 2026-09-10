@@ -6,7 +6,7 @@
 |---|---|
 | Enhancement | 2: Asynchronous payment confirmation |
 | Repository position | After Enhancement 1 and UX-01 are implemented, reviewed, and closed |
-| Status | In progress; migration, creation, signed processing, replay, late, mismatch, unknown-reference, already-resolved, and privacy scenarios have executable evidence; scheduled expiry, forced race, cancellation, reconciliation expansion, localization, and closeout remain |
+| Status | In progress; migration, creation, signed processing, replay, late, mismatch, unknown-reference, already-resolved, privacy, and scheduled expiry scenarios have executable evidence; forced race, cancellation, reconciliation expansion, localization, and closeout remain |
 | Test basis | [Payment requirements](docs/payment-requirements.md), [risk-based test plan](docs/test-plan.md), and completed idempotency, webhook, and reconciliation evidence from Milestones 4–5 |
 | Revision note | Revised after review. Renamed from an earlier "Milestone 9" draft, which incorrectly reused closed milestone numbering and the term "settlement," which already has a distinct meaning in this project |
 
@@ -498,8 +498,8 @@ Scenario Outline: Awaiting-payment guidance follows the selected language
    currently implemented states. Tests: `CONF-02`, `DUP-01`, `DUP-02`,
    `DUP-03`, `MISM-01`, `MISM-02`, `UNK-01`, `CAP-01`, `LATE-01`, `LATE-02`,
    `SEC-C01`, `SEC-C02`, `REC-C03`, `PRIV-C01`.
-3. Add `expire_due_payments` using the same expiry transition and injected
-   time. Test: `CONF-03`.
+3. Completed: add bounded, deterministic `expire_due_payments` processing using
+   the same expiry transition and injected time. Test: `CONF-03`.
 4. Add durable-receipt-time race resolution with an atomic conditional
    lifecycle update. Tests: `RACE-01`.
 5. Add cancellation and its lifecycle event. Test: `CANC-01`, including the

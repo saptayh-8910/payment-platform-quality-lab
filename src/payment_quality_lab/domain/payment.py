@@ -94,6 +94,7 @@ class PaymentOperation(StrEnum):
     CANCEL = "CANCEL"
     REFUND = "REFUND"
     CONFIRMATION_CAPTURE = "CONFIRMATION_CAPTURE"
+    EXPIRE = "EXPIRE"
 
 
 class InvalidPaymentTransitionError(ValueError):
@@ -193,6 +194,19 @@ def capture_confirmation(state: PaymentState, amount: int) -> PaymentState:
         authorized_amount=amount,
         captured_amount=amount,
         refunded_amount=0,
+    )
+
+
+def expire(state: PaymentState) -> PaymentState:
+    """Expire a delayed payment without creating a financial effect."""
+    if state.status is not PaymentStatus.AWAITING_PAYMENT:
+        raise InvalidPaymentTransitionError(PaymentOperation.EXPIRE, state.status)
+
+    return PaymentState(
+        status=PaymentStatus.EXPIRED,
+        authorized_amount=state.authorized_amount,
+        captured_amount=state.captured_amount,
+        refunded_amount=state.refunded_amount,
     )
 
 

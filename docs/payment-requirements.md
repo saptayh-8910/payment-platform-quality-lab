@@ -8,8 +8,8 @@ cardholder data.
 
 Authorization, asynchronous payment creation and confirmation, capture,
 cancellation, refund, concurrency hardening, deterministic failure recovery,
-webhook delivery, and reconciliation are implemented. Scheduled expiry and the
-confirmation-versus-expiry race remain later reviewed work.
+webhook delivery, reconciliation, and scheduled delayed-payment expiry are
+implemented. The confirmation-versus-expiry race remains later reviewed work.
 
 ## 2. Domain model
 
@@ -55,6 +55,7 @@ The initial transition model is:
 | New asynchronous request | Request later confirmation | `AWAITING_PAYMENT` |
 | `AWAITING_PAYMENT` | Matching confirmation before expiry | `CAPTURED` |
 | `AWAITING_PAYMENT` | Confirmation at or after expiry | `EXPIRED` |
+| `AWAITING_PAYMENT` | Scheduled expiry at or after deadline | `EXPIRED` |
 | `AUTHORIZED` | Capture full authorized amount | `CAPTURED` |
 | `AUTHORIZED` | Cancel | `CANCELLED` |
 | `CAPTURED` | Refund less than captured amount | `PARTIALLY_REFUNDED` |
@@ -132,8 +133,14 @@ change.
 - Late, amount-mismatched, currency-mismatched, unknown-reference, and
   already-resolved confirmations receive an internal durable disposition but
   no unintended financial effect.
-- A late confirmation can apply the shared transition to `EXPIRED`. The
-  separate scheduled-expiry operation and forced race test remain pending.
+- A late confirmation and the internal `expire_due_payments(now)` operation
+  apply the same transition to `EXPIRED`.
+- Scheduled expiry selects only awaiting payments with `expires_at <= now` in
+  deterministic, bounded batches. Repeated runs create no additional effect.
+- One scheduled batch commits atomically. If an expiry event cannot be created,
+  every change in that batch rolls back for a safe retry.
+- Scheduled expiry creates no ledger entry and does not change any financial
+  balance. The forced confirmation-versus-expiry race test remains pending.
 - External responses contain only `accepted: true`. Internal classification is
   retrieved separately so callers cannot probe payment state.
 - The raw request body and signature are not retained.

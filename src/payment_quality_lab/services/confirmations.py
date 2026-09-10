@@ -18,6 +18,7 @@ from payment_quality_lab.domain.payment import (
     PaymentState,
     PaymentStatus,
     capture_confirmation,
+    expire,
 )
 from payment_quality_lab.persistence.models import (
     LedgerEntryRecord,
@@ -33,6 +34,8 @@ from payment_quality_lab.services.webhooks import (
 )
 
 SAFE_CONFIRMATION_RESPONSE = '{"accepted":true}'
+DEFAULT_EXPIRY_BATCH_SIZE = 100
+MAX_EXPIRY_BATCH_SIZE = 1_000
 
 
 class ConfirmationDisposition(StrEnum):
@@ -94,18 +97,33 @@ class ConfirmationOutcome:
     replayed: bool
 
 
+@dataclass(frozen=True, slots=True)
+class ExpiryRunResult:
+    """Observable summary of one bounded scheduled-expiry transaction."""
+
+    expired_payment_ids: tuple[str, ...]
+
+    @property
+    def expired_count(self) -> int:
+        """Return the number of payments expired by this invocation."""
+        return len(self.expired_payment_ids)
+
+
 def _as_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
 
 
+def _require_aware_utc(value: datetime, *, field_name: str) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(f"{field_name} must be a timezone-aware datetime")
+    return value.astimezone(UTC)
+
+
 def read_confirmation_clock(clock: Callable[[], datetime]) -> datetime:
     """Read one trusted, timezone-aware receipt time."""
-    current = clock()
-    if current.tzinfo is None or current.utcoffset() is None:
-        raise ValueError("Confirmation clock must return a timezone-aware datetime")
-    return current.astimezone(UTC)
+    return _require_aware_utc(clock(), field_name="Confirmation clock")
 
 
 def verify_confirmation_signature(
@@ -162,6 +180,27 @@ def _payment_state(payment: PaymentRecord) -> PaymentState:
         authorized_amount=payment.authorized_amount,
         captured_amount=payment.captured_amount,
         refunded_amount=payment.refunded_amount,
+    )
+
+
+def _apply_expiry_transition(
+    session: Session,
+    *,
+    payment: PaymentRecord,
+    occurred_at: datetime,
+) -> None:
+    """Stage the single shared expiry transition and lifecycle event."""
+    next_state = expire(_payment_state(payment))
+    payment.status = next_state.status.value
+    payment.authorized_amount = next_state.authorized_amount
+    payment.captured_amount = next_state.captured_amount
+    payment.refunded_amount = next_state.refunded_amount
+    payment.updated_at = occurred_at
+    session.flush()
+    create_outbox_event(
+        session,
+        payment=payment,
+        event_type=WebhookEventType.EXPIRED,
     )
 
 
@@ -225,13 +264,10 @@ def _apply_disposition(
         disposition is ConfirmationDisposition.LATE
         and PaymentStatus(payment.status) is PaymentStatus.AWAITING_PAYMENT
     ):
-        payment.status = PaymentStatus.EXPIRED.value
-        payment.updated_at = received_at
-        session.flush()
-        create_outbox_event(
+        _apply_expiry_transition(
             session,
             payment=payment,
-            event_type=WebhookEventType.EXPIRED,
+            occurred_at=received_at,
         )
 
 
@@ -242,7 +278,7 @@ def process_confirmation(
     received_at: datetime,
 ) -> ConfirmationOutcome:
     """Classify and commit one authenticated confirmation atomically."""
-    received_at = _as_utc(received_at)
+    received_at = _require_aware_utc(received_at, field_name="received_at")
     fingerprint = command.fingerprint()
     replay = _existing_outcome(
         session,
@@ -299,6 +335,51 @@ def process_confirmation(
         raise
 
     return ConfirmationOutcome(confirmation=confirmation, replayed=False)
+
+
+def expire_due_payments(
+    session: Session,
+    *,
+    now: datetime,
+    limit: int = DEFAULT_EXPIRY_BATCH_SIZE,
+) -> ExpiryRunResult:
+    """Expire one bounded, deterministic batch in a single transaction."""
+    current = _require_aware_utc(now, field_name="now")
+    if not 1 <= limit <= MAX_EXPIRY_BATCH_SIZE:
+        raise ValueError(f"limit must be between 1 and {MAX_EXPIRY_BATCH_SIZE}")
+
+    statement = (
+        select(PaymentRecord)
+        .where(
+            PaymentRecord.status == PaymentStatus.AWAITING_PAYMENT.value,
+            PaymentRecord.expires_at.is_not(None),
+            PaymentRecord.expires_at <= current,
+        )
+        .order_by(PaymentRecord.expires_at, PaymentRecord.id)
+        .limit(limit)
+    )
+    due_payments = list(session.scalars(statement))
+    active_payment_id = "scheduled-expiry"
+
+    try:
+        for payment in due_payments:
+            active_payment_id = payment.id
+            _apply_expiry_transition(
+                session,
+                payment=payment,
+                occurred_at=current,
+            )
+        session.commit()
+    except StaleDataError as error:
+        session.rollback()
+        raise ConcurrentPaymentUpdateError(active_payment_id) from error
+    except Exception:
+        session.rollback()
+        raise
+
+    return ExpiryRunResult(
+        expired_payment_ids=tuple(payment.id for payment in due_payments)
+    )
 
 
 def get_confirmation(
