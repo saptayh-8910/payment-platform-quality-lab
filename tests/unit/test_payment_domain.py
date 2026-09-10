@@ -9,6 +9,7 @@ from payment_quality_lab.domain.payment import (
     PaymentStatus,
     authorize,
     capture_confirmation,
+    expire,
 )
 
 
@@ -125,4 +126,34 @@ def test_confirmation_capture_rejects_an_already_resolved_payment() -> None:
                 refunded_amount=0,
             ),
             2500,
+        )
+
+
+def test_expiry_changes_only_the_lifecycle_state() -> None:
+    result = expire(
+        PaymentState(
+            status=PaymentStatus.AWAITING_PAYMENT,
+            authorized_amount=0,
+            captured_amount=0,
+            refunded_amount=0,
+        )
+    )
+
+    assert result == PaymentState(
+        status=PaymentStatus.EXPIRED,
+        authorized_amount=0,
+        captured_amount=0,
+        refunded_amount=0,
+    )
+
+
+def test_expiry_rejects_an_already_resolved_payment() -> None:
+    with pytest.raises(ValueError, match="Cannot EXPIRE payment in CAPTURED state"):
+        expire(
+            PaymentState(
+                status=PaymentStatus.CAPTURED,
+                authorized_amount=2500,
+                captured_amount=2500,
+                refunded_amount=0,
+            )
         )
