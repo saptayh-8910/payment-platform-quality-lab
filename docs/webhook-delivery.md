@@ -39,8 +39,9 @@ generic creation event.
 
 `payment.captured` is also used when a matching delayed confirmation creates a
 capture. `payment.expired` records the one terminal transition produced by a
-late confirmation. Neither mismatched nor duplicate confirmation attempts emit
-another lifecycle event.
+late confirmation or scheduled expiry. Both paths reuse the same transition,
+and repeated scheduler runs cannot create another expiry event. Neither
+mismatched nor duplicate confirmation attempts emit another lifecycle event.
 
 ## Event body
 

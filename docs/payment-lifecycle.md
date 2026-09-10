@@ -14,15 +14,16 @@ stateDiagram-v2
     AUTHORIZED --> CAPTURED: capture full amount
     AUTHORIZED --> CANCELLED: cancel
     AWAITING_PAYMENT --> CAPTURED: matching on-time confirmation
-    AWAITING_PAYMENT --> EXPIRED: late confirmation
+    AWAITING_PAYMENT --> EXPIRED: late confirmation or scheduled expiry
     CAPTURED --> PARTIALLY_REFUNDED: partial refund
     CAPTURED --> REFUNDED: full refund
     PARTIALLY_REFUNDED --> PARTIALLY_REFUNDED: partial refund
     PARTIALLY_REFUNDED --> REFUNDED: refund remaining amount
 ```
 
-Partial capture, scheduled delayed-payment expiry, and cancellation from the
-awaiting state are outside the current implemented scope.
+Partial capture and cancellation from the awaiting state are outside the
+current implemented scope. The confirmation-versus-expiry concurrency rule is
+planned but not yet proven.
 
 ## Decline reasons
 
@@ -54,6 +55,7 @@ that relationship. The legacy `tok_declined` input remains an alias for
 | Refund | `POST /payments/{id}/refund` | Positive integer `amount` | `CAPTURED`, `PARTIALLY_REFUNDED` |
 | Confirm delayed payment | `POST /payment-confirmations` | Confirmation ID, reference, amount, currency | Signed inbound request |
 | Inspect confirmation | `GET /internal/payment-confirmations/{confirmation_id}` | None | Internal diagnostic use |
+| Expire overdue delayed payments | Internal `expire_due_payments(now)` service operation | Trusted UTC time and bounded batch limit | `AWAITING_PAYMENT` at or after deadline |
 
 Client-directed lifecycle requests require an `Idempotency-Key` header. Equivalent
 retries create no additional ledger effect or payment version. Reusing a key for
@@ -64,6 +66,11 @@ return that snapshot rather than the payment's current mutable state.
 Inbound delayed-payment confirmations use `Confirmation-Signature` plus their
 own stable `confirmation_id`. Identical confirmation replay returns the original
 safe acknowledgement. Conflicting content under the same ID returns `409`.
+
+Scheduled expiry uses the same transition as a late confirmation. It processes
+at most 100 payments by default, ordered by deadline and then payment ID. One
+bounded batch commits or rolls back as a unit. Repeating the operation does not
+change an already expired payment or create another lifecycle event.
 
 ## Financial invariants
 
