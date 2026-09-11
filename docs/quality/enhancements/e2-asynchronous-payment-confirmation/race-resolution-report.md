@@ -1,6 +1,6 @@
 # E2 race resolution and recovery report
 
-Status: Local evidence recorded; pull-request CI pending.
+Status: Local and pull-request CI evidence recorded for implementation commit `a405482`.
 Branch: `codex/e2-race-resolution`. Date: 2026-09-11.
 Approved scope: [RACE-01 review](race-resolution-review.md), cases A through N.
 
@@ -76,7 +76,12 @@ the HTTP regression verifies authentication, acknowledgement, failure, and retry
 - Branch-aware coverage: 85.88%; minimum 85%.
 - Node: 45 tests passed. TypeScript, Ruff lint/format, and diff checks passed.
 - Chromium: 11 Cucumber scenarios and 100 steps passed.
-- Pull-request CI: pending.
+- [PR #24](https://github.com/saptayh-8910/payment-platform-quality-lab/pull/24): all six checks passed for `a405482`.
+  [CI](https://github.com/saptayh-8910/payment-platform-quality-lab/actions/runs/34569654290)
+  passed Python 3.12, Python 3.14, and Chromium acceptance.
+  [Performance checks](https://github.com/saptayh-8910/payment-platform-quality-lab/actions/runs/34569654294)
+  passed profile selection, harness validation, and smoke. Later documentation-only
+  commits do not change this tested implementation; their checks remain visible on the PR.
 
 ## Recovery operation
 
