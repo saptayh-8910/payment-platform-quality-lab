@@ -51,6 +51,14 @@ failure.
 
 ## Downgrade boundary
 
+Revision `0005_receipts` adds durable receipt processing state separately from
+final confirmation dispositions. Existing final confirmations are backfilled as
+completed receipts using their original identity, payload fingerprint, and time.
+They are never selected as pending recovery work. Historical final snapshots,
+payment balances, ledger entries, and webhook payloads are preserved. Downgrade
+is blocked to protect receipt evidence. The race integration suite verifies
+upgrade from `0004_confirmations`, repeat upgrade, and historical replay.
+
 The compatibility revision cannot safely downgrade because the older schema
 cannot represent lifecycle operation identity or immutable replay snapshots.
 Removing those fields would discard evidence and could also reintroduce the old

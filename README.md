@@ -70,7 +70,7 @@ Each accepted transition after creation increments the payment version once and
 commits its related evidence in the same transaction. Invalid transitions and
 over-refunds leave payment and ledger state unchanged.
 
-The current automated baseline contains 328 pytest tests with branch-aware
+The current automated baseline contains 357 pytest tests with branch-aware
 coverage above the required 85% gate, 45 Node tests, and 11 Cucumber scenarios
 with 100 steps.
 GitHub Actions runs the Python suite on Python 3.12 and 3.14 and runs the
@@ -173,8 +173,9 @@ the injected creation time. It creates no ledger entry and emits one
 `payment.confirmation_requested` event. Identical retries return the original
 reference and deadline.
 
-A correctly signed confirmation receives a server-controlled receipt time and
-one final internal disposition. A matching on-time confirmation atomically sets
+A correctly signed confirmation receives a server-controlled acceptance time
+after database writer admission. Its receipt commits before final processing.
+A matching on-time confirmation atomically sets
 both financial balances, creates one `CONFIRMATION_CAPTURE` ledger entry, and
 emits one captured event. Late, mismatched, unknown, duplicate, and
 already-resolved confirmations cannot create another financial effect. The
@@ -184,8 +185,12 @@ provides the retained diagnostic evidence.
 The internal `expire_due_payments(now)` operation processes a bounded,
 deterministic batch of overdue awaiting payments. Each payment expires once with
 zero financial effect and one `payment.expired` event. Repeated runs are safe,
-and an event failure rolls back the complete batch. Race resolution,
-cancellation from the awaiting state, reconciliation changes, and customer
+and an event failure rolls back the complete batch. A matching on-time pending
+receipt protects the payment from both scheduled and late-confirmation expiry.
+Receipt acceptance, completion, and expiry use SQLite writer coordination.
+Pending receipts survive processing failures and can be resumed by identical
+caller retry or bounded internal recovery. Forced connection races verify these
+paths. Cancellation from the awaiting state, reconciliation changes, and customer
 messaging remain reviewed future slices.
 
 ## Quick start
@@ -346,6 +351,7 @@ See:
 - [Enhancement 2 database migration foundation report](docs/quality/enhancements/e2-asynchronous-payment-confirmation/migration-foundation-report.md)
 - [Enhancement 2 confirmation processing report](docs/quality/enhancements/e2-asynchronous-payment-confirmation/confirmation-processing-report.md)
 - [Enhancement 2 scheduled expiry report](docs/quality/enhancements/e2-asynchronous-payment-confirmation/scheduled-expiry-report.md)
+- [Enhancement 2 race and recovery report](docs/quality/enhancements/e2-asynchronous-payment-confirmation/race-resolution-report.md)
 - [Defect reports](docs/defects/)
 
 ## License

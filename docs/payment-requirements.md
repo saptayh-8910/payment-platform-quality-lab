@@ -9,7 +9,8 @@ cardholder data.
 Authorization, asynchronous payment creation and confirmation, capture,
 cancellation, refund, concurrency hardening, deterministic failure recovery,
 webhook delivery, reconciliation, and scheduled delayed-payment expiry are
-implemented. The confirmation-versus-expiry race remains later reviewed work.
+implemented. SQLite confirmation-versus-expiry coordination and durable receipt
+recovery are also implemented; see the E2 race report for tested interleavings.
 
 ## 2. Domain model
 
@@ -121,13 +122,18 @@ change.
   synthetic secret.
 - Missing, malformed, stale, future, or incorrect signatures return `401`
   before the body is parsed or any evidence is stored.
-- The server assigns `received_at` from an injected clock. Caller-supplied time
-  is not accepted.
+- The server assigns `received_at` from an injected clock after acquiring the
+  SQLite writer reservation. This acceptance timestamp becomes durable with
+  receipt commit; it is not the HTTP arrival time or a disk commit timestamp.
+  Caller-supplied time is not accepted over HTTP.
 - A matching confirmation received before expiry changes the payment directly
   from `AWAITING_PAYMENT` to `CAPTURED`. Authorized and captured amounts are set
   together so the shared financial invariant remains valid.
-- The transaction creates one `CONFIRMATION_CAPTURE` ledger entry and one
-  `payment.captured` event. A partial failure rolls back every effect.
+- The final transaction creates one `CONFIRMATION_CAPTURE` ledger entry and one
+  `payment.captured` event with the final disposition and receipt completion.
+  A failure rolls back those effects but preserves the earlier pending receipt.
+  HTTP processing failure returns a generic `503`; identical retry resumes the
+  original receipt. `recover_pending_confirmations` also resumes bounded work.
 - An identical confirmation replay returns the original generic acknowledgement
   and creates nothing else. Reusing the ID with changed content returns `409`.
 - Late, amount-mismatched, currency-mismatched, unknown-reference, and
@@ -140,7 +146,8 @@ change.
 - One scheduled batch commits atomically. If an expiry event cannot be created,
   every change in that batch rolls back for a safe retry.
 - Scheduled expiry creates no ledger entry and does not change any financial
-  balance. The forced confirmation-versus-expiry race test remains pending.
+  balance. A committed, matching on-time pending receipt protects the payment.
+  Both expiry paths and receipt processing coordinate before mutable decisions.
 - External responses contain only `accepted: true`. Internal classification is
   retrieved separately so callers cannot probe payment state.
 - The raw request body and signature are not retained.
