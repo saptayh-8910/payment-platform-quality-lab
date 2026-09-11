@@ -15,6 +15,7 @@ from payment_quality_lab.domain.payment import (
     PaymentStatus,
 )
 from payment_quality_lab.persistence.models import (
+    ConfirmationReceiptRecord,
     LedgerEntryRecord,
     MerchantPaymentProjectionRecord,
     PaymentConfirmationRecord,
@@ -103,6 +104,24 @@ class PaymentConfirmationDiagnosticResponse(BaseModel):
             received_at=_as_utc(confirmation.received_at),
             disposition=ConfirmationDisposition(confirmation.disposition),
             payment_id=confirmation.payment_id,
+        )
+
+
+class ConfirmationReceiptResponse(BaseModel):
+    """Minimal internal view of accepted work, including pending receipts."""
+
+    confirmation_id: str
+    received_at: datetime
+    completed: bool
+
+    @classmethod
+    def from_record(
+        cls, receipt: ConfirmationReceiptRecord
+    ) -> "ConfirmationReceiptResponse":
+        return cls(
+            confirmation_id=receipt.confirmation_id,
+            received_at=_as_utc(receipt.received_at),
+            completed=receipt.completed,
         )
 
 

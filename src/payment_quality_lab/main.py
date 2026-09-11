@@ -26,6 +26,7 @@ from payment_quality_lab.persistence.migrations import require_current_schema
 from payment_quality_lab.services.confirmations import (
     ConfirmationIdConflictError,
     ConfirmationNotFoundError,
+    ConfirmationProcessingUnavailableError,
     InvalidConfirmationPayloadError,
     InvalidConfirmationSignatureError,
 )
@@ -137,6 +138,18 @@ def create_app(
             content={
                 "code": "idempotency_conflict",
                 "message": "Idempotency key was already used for another request",
+            },
+        )
+
+    @app.exception_handler(ConfirmationProcessingUnavailableError)
+    async def confirmation_processing_unavailable(
+        _request: Request, _error: ConfirmationProcessingUnavailableError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "code": "confirmation_processing_unavailable",
+                "message": "Retry with the same confirmation ID and payload",
             },
         )
 
