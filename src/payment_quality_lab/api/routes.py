@@ -241,7 +241,7 @@ def cancel_authorization(
     response: Response,
     failure_point: FailurePointDependency,
 ) -> PaymentResponse:
-    """Cancel an authorized payment before capture."""
+    """Cancel an authorized or unpaid awaiting payment before capture."""
     outcome = cancel_payment(
         session,
         payment_id=payment_id,

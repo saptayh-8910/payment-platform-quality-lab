@@ -31,7 +31,9 @@ from payment_quality_lab.services.confirmations import (
     InvalidConfirmationSignatureError,
 )
 from payment_quality_lab.services.payments import (
+    CancellationUnavailableError,
     ConcurrentPaymentUpdateError,
+    ConfirmationPendingError,
     FailureInjectionDisabledError,
     IdempotencyConflictError,
     PaymentNotFoundError,
@@ -150,6 +152,33 @@ def create_app(
             content={
                 "code": "confirmation_processing_unavailable",
                 "message": "Retry with the same confirmation ID and payload",
+            },
+        )
+
+    @app.exception_handler(ConfirmationPendingError)
+    async def confirmation_pending(
+        _request: Request, _error: ConfirmationPendingError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "code": "confirmation_pending",
+                "message": (
+                    "A payment confirmation is pending. "
+                    "Check the payment status before cancelling."
+                ),
+            },
+        )
+
+    @app.exception_handler(CancellationUnavailableError)
+    async def cancellation_unavailable(
+        _request: Request, _error: CancellationUnavailableError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "code": "cancellation_unavailable",
+                "message": "Retry cancellation with the same idempotency key",
             },
         )
 

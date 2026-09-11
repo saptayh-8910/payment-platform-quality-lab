@@ -9,7 +9,7 @@ from enum import StrEnum
 from uuid import uuid4
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -33,10 +33,22 @@ from payment_quality_lab.persistence.models import (
     LedgerEntryRecord,
     PaymentRecord,
 )
+from payment_quality_lab.services.coordination import (
+    begin_coordinated_write,
+    has_protecting_receipt,
+)
 from payment_quality_lab.services.webhooks import (
     WebhookEventType,
     create_outbox_event,
 )
+
+
+class ConfirmationPendingError(RuntimeError):
+    """Accepted matching confirmation must be resolved before cancellation."""
+
+
+class CancellationUnavailableError(RuntimeError):
+    """Database cancellation failure may be retried with the same key."""
 
 
 class PaymentNotFoundError(LookupError):
@@ -496,6 +508,11 @@ def _execute_claimed_lifecycle_operation(
         next_state = capture(current_state)
         ledger_amount = next_state.captured_amount - current_state.captured_amount
     elif command.operation is PaymentOperation.CANCEL:
+        if (
+            current_state.status is PaymentStatus.AWAITING_PAYMENT
+            and has_protecting_receipt(session, payment)
+        ):
+            raise ConfirmationPendingError
         next_state = cancel(current_state)
         ledger_amount = current_state.authorized_amount
     elif command.operation is PaymentOperation.REFUND and command.amount is not None:
@@ -511,16 +528,20 @@ def _execute_claimed_lifecycle_operation(
     payment.refunded_amount = next_state.refunded_amount
     payment.updated_at = now
 
-    session.add(
-        LedgerEntryRecord(
-            id=f"led_{uuid4().hex}",
-            payment_id=payment.id,
-            operation=command.operation.value,
-            amount=ledger_amount,
-            currency=payment.currency,
-            created_at=now,
+    if not (
+        command.operation is PaymentOperation.CANCEL
+        and current_state.status is PaymentStatus.AWAITING_PAYMENT
+    ):
+        session.add(
+            LedgerEntryRecord(
+                id=f"led_{uuid4().hex}",
+                payment_id=payment.id,
+                operation=command.operation.value,
+                amount=ledger_amount,
+                currency=payment.currency,
+                created_at=now,
+            )
         )
-    )
     _commit_payment_outcome(
         session,
         claim=claim,
@@ -561,16 +582,20 @@ def cancel_payment(
     idempotency_key: str,
     failure_point: FailurePoint | None = None,
 ) -> LifecycleOutcome:
-    """Cancel an uncaptured authorization exactly once."""
-    return _apply_lifecycle_operation(
-        session,
-        command=LifecycleCommand(
-            payment_id=payment_id,
-            operation=PaymentOperation.CANCEL,
-        ),
-        idempotency_key=idempotency_key,
-        failure_point=failure_point,
-    )
+    """Cancel before capture under the same ordering boundary as confirmation."""
+    try:
+        begin_coordinated_write(session)
+        return _apply_lifecycle_operation(
+            session,
+            command=LifecycleCommand(
+                payment_id=payment_id, operation=PaymentOperation.CANCEL
+            ),
+            idempotency_key=idempotency_key,
+            failure_point=failure_point,
+        )
+    except SQLAlchemyError as error:
+        session.rollback()
+        raise CancellationUnavailableError from error
 
 
 def refund_payment(

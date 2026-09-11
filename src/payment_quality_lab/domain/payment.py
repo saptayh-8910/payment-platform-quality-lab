@@ -211,8 +211,8 @@ def expire(state: PaymentState) -> PaymentState:
 
 
 def cancel(state: PaymentState) -> PaymentState:
-    """Cancel an authorization before capture."""
-    if state.status is not PaymentStatus.AUTHORIZED:
+    """Cancel an authorization or an unpaid awaiting request."""
+    if state.status not in {PaymentStatus.AUTHORIZED, PaymentStatus.AWAITING_PAYMENT}:
         raise InvalidPaymentTransitionError(PaymentOperation.CANCEL, state.status)
 
     return PaymentState(

@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import uuid4
 
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
@@ -25,6 +25,13 @@ from payment_quality_lab.persistence.models import (
     LedgerEntryRecord,
     PaymentConfirmationRecord,
     PaymentRecord,
+)
+from payment_quality_lab.services.coordination import (
+    begin_coordinated_write as _begin_coordinated_write,
+)
+from payment_quality_lab.services.coordination import (
+    has_protecting_receipt,
+    protecting_receipt_exists,
 )
 from payment_quality_lab.services.payments import ConcurrentPaymentUpdateError
 from payment_quality_lab.services.webhooks import (
@@ -68,21 +75,6 @@ class ConfirmationNotFoundError(LookupError):
 
 class ConfirmationProcessingUnavailableError(RuntimeError):
     """Receipt remains pending and can be retried or recovered."""
-
-
-def _begin_coordinated_write(session: Session) -> None:
-    """Acquire SQLite's writer reservation before reading mutable decisions.
-
-    These service boundaries own their transaction. Discard only a clean read
-    transaction; refuse to commit or discard unrelated caller writes.
-    """
-    if session.new or session.dirty or session.deleted:
-        raise ValueError("Confirmation operations require a clean session")
-    if session.get_bind().dialect.name != "sqlite":
-        raise ValueError("Confirmation coordination currently supports SQLite only")
-    session.rollback()
-    session.expire_all()
-    session.execute(text("BEGIN IMMEDIATE"))
 
 
 def accept_confirmation(
@@ -322,19 +314,7 @@ def _apply_disposition(
         disposition is ConfirmationDisposition.LATE
         and PaymentStatus(payment.status) is PaymentStatus.AWAITING_PAYMENT
     ):
-        protecting = session.scalar(
-            select(ConfirmationReceiptRecord.confirmation_id)
-            .where(
-                ConfirmationReceiptRecord.payment_reference
-                == payment.payment_reference,
-                ConfirmationReceiptRecord.completed.is_(False),
-                ConfirmationReceiptRecord.amount == payment.amount,
-                ConfirmationReceiptRecord.currency == payment.currency,
-                ConfirmationReceiptRecord.received_at < payment.expires_at,
-            )
-            .limit(1)
-        )
-        if protecting is not None:
+        if has_protecting_receipt(session, payment):
             return
         _apply_expiry_transition(
             session,
@@ -505,18 +485,7 @@ def expire_due_payments(
         raise ValueError(f"limit must be between 1 and {MAX_EXPIRY_BATCH_SIZE}")
 
     _begin_coordinated_write(session)
-    protected_receipt = (
-        select(ConfirmationReceiptRecord.confirmation_id)
-        .where(
-            ConfirmationReceiptRecord.payment_reference
-            == PaymentRecord.payment_reference,
-            ConfirmationReceiptRecord.completed.is_(False),
-            ConfirmationReceiptRecord.amount == PaymentRecord.amount,
-            ConfirmationReceiptRecord.currency == PaymentRecord.currency,
-            ConfirmationReceiptRecord.received_at < PaymentRecord.expires_at,
-        )
-        .exists()
-    )
+    protected_receipt = protecting_receipt_exists()
     statement = (
         select(PaymentRecord)
         .where(
