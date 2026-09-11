@@ -6,7 +6,7 @@
 |---|---|
 | Enhancement | 2: Asynchronous payment confirmation |
 | Repository position | After Enhancement 1 and UX-01 are implemented, reviewed, and closed |
-| Status | In progress; creation, confirmation, scheduled expiry, and SQLite race/recovery scenarios have executable evidence; cancellation, reconciliation expansion, localization, and closeout remain |
+| Status | In progress; creation, confirmation, scheduled expiry, SQLite race/recovery, and awaiting cancellation have executable evidence; reconciliation expansion, localization, and closeout remain |
 | Test basis | [Payment requirements](docs/payment-requirements.md), [risk-based test plan](docs/test-plan.md), and completed idempotency, webhook, and reconciliation evidence from Milestones 4–5 |
 | Revision note | Revised after review. Renamed from an earlier "Milestone 9" draft, which incorrectly reused closed milestone numbering and the term "settlement," which already has a distinct meaning in this project |
 
@@ -512,8 +512,12 @@ Scenario Outline: Awaiting-payment guidance follows the selected language
    the same expiry transition and injected time. Test: `CONF-03`.
 4. Completed: durable receipt, final processing, bounded recovery, and SQLite
    writer coordination. Tests: `RACE-01` cases A through N.
-5. Add cancellation and its lifecycle event. Test: `CANC-01`, including the
-   remaining cancelled-payment form of `already_resolved`.
+5. Implemented: cancellation and its lifecycle event. Test: `CANC-01`, including
+   the cancelled-payment form of `already_resolved`. See the
+   [approved policy and cases A–P](cancellation-review.md) and
+   [execution report](cancellation-report.md). Pending matching on-time receipts
+   block cancellation; otherwise cancellation and explicit expiry are ordered
+   by the first committed terminal transition, even after the deadline.
 6. Extend reconciliation with separate payment outcomes, event dispositions,
    currency-separated anomaly reporting, and cutoff behavior. Tests:
    `REC-C01`, `REC-C02`, `REC-C03`, `REC-C04`.

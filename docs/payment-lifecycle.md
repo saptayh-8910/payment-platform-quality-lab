@@ -15,15 +15,19 @@ stateDiagram-v2
     AUTHORIZED --> CANCELLED: cancel
     AWAITING_PAYMENT --> CAPTURED: matching on-time confirmation
     AWAITING_PAYMENT --> EXPIRED: late confirmation or scheduled expiry
+    AWAITING_PAYMENT --> CANCELLED: cancel without protecting receipt
     CAPTURED --> PARTIALLY_REFUNDED: partial refund
     CAPTURED --> REFUNDED: full refund
     PARTIALLY_REFUNDED --> PARTIALLY_REFUNDED: partial refund
     PARTIALLY_REFUNDED --> REFUNDED: refund remaining amount
 ```
 
-Partial capture and cancellation from the awaiting state are outside the
-current implemented scope. SQLite writer coordination enforces the reviewed
-confirmation-versus-expiry rule; the E2 race report records forced interleavings.
+Partial capture is outside the implemented scope. Awaiting cancellation creates
+no ledger entry. A matching on-time pending receipt blocks cancellation with
+`confirmation_pending` (409). Passing the deadline alone does not block it:
+cancellation and explicit expiry use the same SQLite writer ordering, and the
+first committed terminal transition wins. See the
+[cancellation report](quality/enhancements/e2-asynchronous-payment-confirmation/cancellation-report.md).
 
 ## Decline reasons
 
@@ -51,7 +55,7 @@ that relationship. The legacy `tok_declined` input remains an alias for
 |---|---|---|---|
 | Authorize | `POST /payments` | Merchant reference, amount, currency, synthetic token | New request |
 | Capture | `POST /payments/{id}/capture` | None | `AUTHORIZED` |
-| Cancel | `POST /payments/{id}/cancel` | None | `AUTHORIZED` |
+| Cancel | `POST /payments/{id}/cancel` | None | `AUTHORIZED`, or `AWAITING_PAYMENT` without a protecting receipt |
 | Refund | `POST /payments/{id}/refund` | Positive integer `amount` | `CAPTURED`, `PARTIALLY_REFUNDED` |
 | Confirm delayed payment | `POST /payment-confirmations` | Confirmation ID, reference, amount, currency | Signed inbound request |
 | Inspect confirmation | `GET /internal/payment-confirmations/{confirmation_id}` | None | Internal diagnostic use |

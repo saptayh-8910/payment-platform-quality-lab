@@ -70,7 +70,7 @@ Each accepted transition after creation increments the payment version once and
 commits its related evidence in the same transaction. Invalid transitions and
 over-refunds leave payment and ledger state unchanged.
 
-The current automated baseline contains 357 pytest tests with branch-aware
+The current automated baseline contains 386 pytest tests with branch-aware
 coverage above the required 85% gate, 45 Node tests, and 11 Cucumber scenarios
 with 100 steps.
 GitHub Actions runs the Python suite on Python 3.12 and 3.14 and runs the
@@ -321,6 +321,12 @@ curl --request POST http://127.0.0.1:8000/payments/PAYMENT_ID/refund \
 
 Use `/payments/PAYMENT_ID/cancel` instead of capture to cancel an authorized
 payment. Capture and cancellation are mutually exclusive in the state machine.
+
+Awaiting requests can also be cancelled, without a ledger entry. A matching
+on-time pending confirmation blocks cancellation with `confirmation_pending`
+(409). Passing the deadline alone does not expire a payment: cancellation and
+explicit expiry follow their committed database order. See the
+[cancellation quality report](docs/quality/enhancements/e2-asynchronous-payment-confirmation/cancellation-report.md).
 
 See:
 
