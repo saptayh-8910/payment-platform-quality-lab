@@ -9,7 +9,11 @@ import pytest
 from sqlalchemy import event, select, text
 from sqlalchemy.exc import OperationalError
 
-from payment_quality_lab.domain.payment import Currency, DelayedPaymentDecision
+from payment_quality_lab.domain.payment import (
+    Currency,
+    DelayedPaymentDecision,
+    InvalidPaymentTransitionError,
+)
 from payment_quality_lab.persistence.database import (
     Base,
     create_database_engine,
@@ -17,12 +21,14 @@ from payment_quality_lab.persistence.database import (
 )
 from payment_quality_lab.persistence.models import (
     ConfirmationReceiptRecord,
+    IdempotencyRecord,
     LedgerEntryRecord,
     PaymentConfirmationRecord,
     PaymentRecord,
     WebhookEventRecord,
 )
 from payment_quality_lab.services import confirmations as service
+from payment_quality_lab.services import payments
 from payment_quality_lab.services.payments import (
     AuthorizationCommand,
     authorize_payment,
@@ -130,6 +136,304 @@ def test_a_b_committed_receipt_survives_paused_processing(lab, expiry_first):
     assert_result(lab, "CAPTURED", dispositions=["applied"])
 
 
+def cancel_awaiting(lab, key="cancel-awaiting-key", **kwargs):
+    return invoke(
+        lab, payments.cancel_payment, payment_id=lab[3], idempotency_key=key, **kwargs
+    )
+
+
+def assert_cancelled(lab):
+    with lab[1]() as session:
+        payment = session.get(PaymentRecord, lab[3])
+        assert payment.status == "CANCELLED"
+        assert payment.version == 2
+        assert (
+            payment.authorized_amount
+            == payment.captured_amount
+            == payment.refunded_amount
+            == 0
+        )
+        assert payment.payment_reference == lab[2].payment_reference
+        assert list(session.scalars(select(LedgerEntryRecord))) == []
+        events = list(
+            session.scalars(
+                select(WebhookEventRecord).order_by(
+                    WebhookEventRecord.aggregate_version
+                )
+            )
+        )
+        assert [(e.event_type, e.aggregate_version) for e in events] == [
+            ("payment.confirmation_requested", 1),
+            ("payment.cancelled", 2),
+        ]
+        assert len(list(session.scalars(select(IdempotencyRecord)))) == 2
+
+
+def rejected_cancel(lab, error):
+    with pytest.raises(error):
+        cancel_awaiting(lab)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"amount": 1},
+        {"currency": Currency.USD},
+        {"payment_reference": "ref_unknown"},
+        {},
+    ],
+)
+def test_canc_g_nonprotecting_receipt(lab, change):
+    command = replace(lab[2], **change)
+    invoke(
+        lab,
+        service.accept_confirmation,
+        command=command,
+        clock=lambda: ON_TIME if change else DEADLINE,
+    )
+    cancel_awaiting(lab)
+    result = invoke(lab, service.complete_confirmation, command.confirmation_id)
+    assert result.confirmation.disposition == (
+        "unknown_reference" if "payment_reference" in change else "already_resolved"
+    )
+    assert_cancelled(lab)
+
+
+def test_canc_f_pending_rejection_leaves_key_reusable(lab):
+    invoke(lab, service.accept_confirmation, command=lab[2], clock=lambda: ON_TIME)
+    rejected_cancel(lab, payments.ConfirmationPendingError)
+    with lab[1]() as session:
+        assert session.get(IdempotencyRecord, "cancel-awaiting-key") is None
+        assert not session.get(
+            ConfirmationReceiptRecord, lab[2].confirmation_id
+        ).completed
+    invoke(lab, service.recover_pending_confirmations)
+    rejected_cancel(lab, InvalidPaymentTransitionError)
+    assert_result(lab, "CAPTURED", dispositions=["applied"])
+
+
+def test_canc_h_cancellation_owns_writer_before_receipt(lab, monkeypatch):
+    contend(
+        lab,
+        monkeypatch,
+        lambda: cancel_awaiting(lab),
+        lambda: invoke(
+            lab, service.process_confirmation, command=lab[2], clock=lambda: ON_TIME
+        ),
+        "_execute_claimed_lifecycle_operation",
+        module=payments,
+    )
+    assert_cancelled(lab)
+    with lab[1]() as session:
+        assert (
+            session.get(PaymentConfirmationRecord, lab[2].confirmation_id).disposition
+            == "already_resolved"
+        )
+
+
+def test_canc_i_receipt_owns_writer_before_cancellation(lab, monkeypatch):
+    contend(
+        lab,
+        monkeypatch,
+        lambda: invoke(
+            lab, service.accept_confirmation, command=lab[2], clock=lambda: ON_TIME
+        ),
+        lambda: rejected_cancel(lab, payments.ConfirmationPendingError),
+        "read_confirmation_clock",
+    )
+    invoke(lab, service.recover_pending_confirmations)
+    assert_result(lab, "CAPTURED", dispositions=["applied"])
+
+
+@pytest.mark.parametrize("recovery", [False, True])
+@pytest.mark.parametrize("cancel_first", [False, True])
+def test_canc_j_pending_completion_and_cancellation(
+    lab, monkeypatch, recovery, cancel_first
+):
+    invoke(lab, service.accept_confirmation, command=lab[2], clock=lambda: ON_TIME)
+
+    def finish():
+        if recovery:
+            return invoke(lab, service.recover_pending_confirmations)
+        return invoke(lab, service.complete_confirmation, lab[2].confirmation_id)
+
+    if cancel_first:
+        contend(
+            lab,
+            monkeypatch,
+            lambda: rejected_cancel(lab, payments.ConfirmationPendingError),
+            finish,
+            "_execute_claimed_lifecycle_operation",
+            module=payments,
+        )
+    else:
+        contend(
+            lab,
+            monkeypatch,
+            finish,
+            lambda: rejected_cancel(lab, InvalidPaymentTransitionError),
+            "_complete_receipt",
+        )
+    assert_result(lab, "CAPTURED", dispositions=["applied"])
+
+
+@pytest.mark.parametrize("cancel_first", [False, True])
+def test_canc_k_expiry_competes(lab, monkeypatch, cancel_first):
+    def expire():
+        return invoke(lab, service.expire_due_payments, now=DEADLINE)
+
+    if cancel_first:
+        _, result = contend(
+            lab,
+            monkeypatch,
+            lambda: cancel_awaiting(lab),
+            expire,
+            "_execute_claimed_lifecycle_operation",
+            module=payments,
+        )
+        assert result.expired_count == 0
+        assert_cancelled(lab)
+    else:
+        result, _ = contend(
+            lab,
+            monkeypatch,
+            expire,
+            lambda: rejected_cancel(lab, InvalidPaymentTransitionError),
+            "_apply_expiry_transition",
+        )
+        assert result.expired_count == 1
+        assert_result(lab, "EXPIRED", receipts=0)
+
+
+@pytest.mark.parametrize("same_key", [False, True])
+def test_canc_l_two_cancellations(lab, monkeypatch, same_key):
+    def second():
+        if same_key:
+            assert cancel_awaiting(lab).replayed
+        else:
+            with pytest.raises(InvalidPaymentTransitionError):
+                cancel_awaiting(lab, key="different-cancel-key")
+
+    contend(
+        lab,
+        monkeypatch,
+        lambda: cancel_awaiting(lab),
+        second,
+        "_execute_claimed_lifecycle_operation",
+        module=payments,
+    )
+    assert_cancelled(lab)
+
+
+def test_canc_e_stale_session_reloads_captured_state(lab):
+    with lab[1]() as stale:
+        cached = stale.get(PaymentRecord, lab[3])
+        stale.commit()
+        invoke(lab, service.process_confirmation, command=lab[2], clock=lambda: ON_TIME)
+        assert cached.status == "AWAITING_PAYMENT"
+        with pytest.raises(InvalidPaymentTransitionError):
+            payments.cancel_payment(
+                stale, payment_id=lab[3], idempotency_key="stale-cancel-key"
+            )
+    assert_result(lab, "CAPTURED", dispositions=["applied"])
+
+
+@pytest.mark.parametrize(
+    "point", [payments.FailurePoint.BEFORE_COMMIT, payments.FailurePoint.AFTER_COMMIT]
+)
+def test_canc_m_snapshot_boundary_and_retry(lab, point):
+    with pytest.raises(payments.SimulatedPaymentTimeoutError):
+        cancel_awaiting(lab, failure_point=point)
+    outcome = cancel_awaiting(lab)
+    assert outcome.replayed == (point is payments.FailurePoint.AFTER_COMMIT)
+    assert_cancelled(lab)
+
+
+def test_canc_m_event_failure_rolls_back(lab, monkeypatch):
+    with monkeypatch.context() as patch:
+
+        def fail(*args, **kwargs):
+            raise RuntimeError("event failure")
+
+        patch.setattr(payments, "create_outbox_event", fail)
+        with pytest.raises(RuntimeError):
+            cancel_awaiting(lab)
+    with lab[1]() as session:
+        assert session.get(PaymentRecord, lab[3]).status == "AWAITING_PAYMENT"
+        assert session.get(IdempotencyRecord, "cancel-awaiting-key") is None
+        assert len(list(session.scalars(select(WebhookEventRecord)))) == 1
+    cancel_awaiting(lab)
+    assert_cancelled(lab)
+
+
+@pytest.mark.parametrize("offset", [-1, 0, 1])
+def test_canc_o_deadline_does_not_execute_expiry(lab, monkeypatch, offset):
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return DEADLINE + timedelta(seconds=offset)
+
+    monkeypatch.setattr(payments, "datetime", Clock)
+    cancel_awaiting(lab)
+    assert_cancelled(lab)
+
+
+def test_canc_n_cancelled_event_projects_and_replays(lab):
+    from payment_quality_lab.persistence.models import MerchantPaymentProjectionRecord
+    from payment_quality_lab.services.webhooks import consume_webhook, sign_webhook
+
+    cancel_awaiting(lab)
+    with lab[1]() as session:
+        events = list(
+            session.scalars(
+                select(WebhookEventRecord).order_by(
+                    WebhookEventRecord.aggregate_version
+                )
+            )
+        )
+        for item in events:
+            body = item.payload.encode()
+            signature = sign_webhook(
+                body, secret="test-cancel-secret", timestamp=int(DEADLINE.timestamp())
+            )
+            for _ in range(2):
+                consume_webhook(
+                    session,
+                    payload=body,
+                    signature_header=signature,
+                    secret="test-cancel-secret",
+                    now=DEADLINE,
+                )
+        projection = session.get(MerchantPaymentProjectionRecord, lab[3])
+        assert projection.status == "CANCELLED"
+        assert (
+            projection.authorized_amount
+            == projection.captured_amount
+            == projection.refunded_amount
+            == 0
+        )
+    assert_cancelled(lab)
+
+
+def test_canc_p_real_writer_timeout(lab):
+    from sqlalchemy.orm import Session
+
+    with (
+        lab[1]() as owner,
+        lab[0].connect() as connection,
+        Session(bind=connection) as contender,
+    ):
+        owner.execute(text("BEGIN IMMEDIATE"))
+        contender.execute(text("PRAGMA busy_timeout=1"))
+        with pytest.raises(payments.CancellationUnavailableError):
+            payments.cancel_payment(
+                contender, payment_id=lab[3], idempotency_key="cancel-awaiting-key"
+            )
+        owner.rollback()
+    cancel_awaiting(lab)
+    assert_cancelled(lab)
+
+
 def test_c_no_receipt_expires(lab):
     assert invoke(lab, service.expire_due_payments, now=DEADLINE).expired_count == 1
     assert_result(lab, "EXPIRED", receipts=0, dispositions=[])
@@ -146,10 +450,12 @@ def test_d_boundary_and_late_receipt_both_orders(lab, accepted, expiry_first):
     assert_result(lab, "EXPIRED", dispositions=["late"])
 
 
-def contend(lab, monkeypatch, first, second, checkpoint, blocked_check=None):
+def contend(
+    lab, monkeypatch, first, second, checkpoint, blocked_check=None, module=service
+):
     """Pause the owner inside its transaction and observe contender's BEGIN."""
     paused, release, attempting = Event(), Event(), Event()
-    original = getattr(service, checkpoint)
+    original = getattr(module, checkpoint)
     connections = set()
 
     def pause(*args, **kwargs):
@@ -164,7 +470,7 @@ def contend(lab, monkeypatch, first, second, checkpoint, blocked_check=None):
             if current_thread().name.startswith("contender"):
                 attempting.set()
 
-    monkeypatch.setattr(service, checkpoint, pause)
+    monkeypatch.setattr(module, checkpoint, pause)
     event.listen(lab[0], "before_cursor_execute", before_sql)
     try:
         with (

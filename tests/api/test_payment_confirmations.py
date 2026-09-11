@@ -8,14 +8,110 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 
+from payment_quality_lab.domain.payment import Currency
 from payment_quality_lab.main import DEFAULT_CONFIRMATION_SIGNING_SECRET
 from payment_quality_lab.persistence.models import ConfirmationReceiptRecord
-from payment_quality_lab.services import confirmations
+from payment_quality_lab.services import confirmations, payments
 from payment_quality_lab.services.webhooks import sign_webhook
 
 CREATED_AT = datetime(2026, 9, 9, 2, 0, tzinfo=UTC)
 RECEIVED_AT = CREATED_AT + timedelta(hours=1)
+
+
+@pytest.mark.parametrize("currency", ["JPY", "USD"])
+def test_canc_a_b_c_d_cancel_replay_and_later_confirmation(app, client, currency):
+    payment = create_delayed_payment(app, client, currency=currency)
+    url = f"/payments/{payment['id']}/cancel"
+    headers = {"Idempotency-Key": "awaiting-cancel-key"}
+    response = client.post(url, headers=headers)
+    assert response.status_code == 200
+    result = response.json()
+    assert result["status"] == "CANCELLED"
+    assert result["version"] == 2
+    assert (
+        result["authorized_amount"]
+        == result["captured_amount"]
+        == result["refunded_amount"]
+        == 0
+    )
+    for field in ["payment_reference", "payment_flow", "expires_at", "created_at"]:
+        assert result[field] == payment[field]
+    assert client.post(url, headers=headers).json() == result
+    assert client.get(f"/payments/{payment['id']}/ledger").json() == []
+    assert (
+        client.post(url, headers={"Idempotency-Key": "fresh-cancel-key"}).status_code
+        == 409
+    )
+    other = create_delayed_payment(app, client, key="another-delayed-payment")
+    assert (
+        client.post(f"/payments/{other['id']}/cancel", headers=headers).status_code
+        == 409
+    )
+    assert (
+        client.post(f"/payments/{payment['id']}/capture", headers=headers).status_code
+        == 409
+    )
+    payload = confirmation_payload(payment["payment_reference"], currency=currency)
+    confirmed = signed_confirmation(app, client, payload)
+    assert confirmed.status_code == 200
+    diagnostic = client.get(
+        f"/internal/payment-confirmations/{payload['confirmation_id']}"
+    )
+    assert diagnostic.status_code == 200
+    assert diagnostic.json()["disposition"] == "already_resolved"
+    assert client.get(f"/payments/{payment['id']}").json() == result
+
+
+def test_canc_f_pending_api_conflict(app, client):
+    payment = create_delayed_payment(app, client)
+    with app.state.session_factory() as session:
+        confirmations.accept_confirmation(
+            session,
+            command=confirmations.ConfirmationCommand(
+                "cnf_pending_cancel", payment["payment_reference"], 2500, Currency.JPY
+            ),
+            clock=lambda: RECEIVED_AT,
+        )
+    response = client.post(
+        f"/payments/{payment['id']}/cancel",
+        headers={"Idempotency-Key": "pending-cancel-key"},
+    )
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "confirmation_pending",
+        "message": (
+            "A payment confirmation is pending. "
+            "Check the payment status before cancelling."
+        ),
+    }
+
+
+def test_canc_p_api_database_failure_is_safe(app, client, monkeypatch):
+    payment = create_delayed_payment(app, client)
+    with monkeypatch.context() as patch:
+
+        def fail(session):
+            raise OperationalError("private database details", {}, Exception("secret"))
+
+        patch.setattr(payments, "begin_coordinated_write", fail)
+        response = client.post(
+            f"/payments/{payment['id']}/cancel",
+            headers={"Idempotency-Key": "unavailable-cancel-key"},
+        )
+    assert response.status_code == 503
+    assert response.json() == {
+        "code": "cancellation_unavailable",
+        "message": "Retry cancellation with the same idempotency key",
+    }
+    assert (
+        client.post(
+            f"/payments/{payment['id']}/cancel",
+            headers={"Idempotency-Key": "unavailable-cancel-key"},
+        ).status_code
+        == 200
+    )
 
 
 def create_delayed_payment(
