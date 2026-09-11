@@ -200,6 +200,24 @@ class ProcessedWebhookRecord(Base):
     processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class ConfirmationReceiptRecord(Base):
+    """Immutable accepted input and separately tracked processing completion."""
+
+    __tablename__ = "confirmation_receipts"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_receipt_amount_positive"),
+        CheckConstraint("currency IN ('JPY', 'USD')", name="ck_receipt_currency"),
+    )
+
+    confirmation_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    request_fingerprint: Mapped[str] = mapped_column(String(64))
+    payment_reference: Mapped[str] = mapped_column(String(36), index=True)
+    amount: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(3))
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+
 class PaymentConfirmationRecord(Base):
     """Durable, minimal evidence for one authenticated confirmation."""
 

@@ -7,9 +7,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, Request, Response, status
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from payment_quality_lab.api.schemas import (
     AuthorizePaymentRequest,
+    ConfirmationReceiptResponse,
     LedgerEntryResponse,
     MerchantProjectionResponse,
     PaymentConfirmationDiagnosticResponse,
@@ -26,9 +28,13 @@ from payment_quality_lab.api.schemas import (
     WebhookDeliveryResponse,
     WebhookEventResponse,
 )
-from payment_quality_lab.persistence.models import SettlementBatchRecord
+from payment_quality_lab.persistence.models import (
+    ConfirmationReceiptRecord,
+    SettlementBatchRecord,
+)
 from payment_quality_lab.services.confirmations import (
     ConfirmationCommand,
+    ConfirmationNotFoundError,
     InvalidConfirmationPayloadError,
     get_confirmation,
     process_confirmation,
@@ -322,7 +328,8 @@ async def receive_payment_confirmation(
             "Confirmation payload does not match the required contract"
         ) from error
 
-    outcome = process_confirmation(
+    outcome = await run_in_threadpool(
+        process_confirmation,
         session,
         command=ConfirmationCommand(
             confirmation_id=payload.confirmation_id,
@@ -330,13 +337,27 @@ async def receive_payment_confirmation(
             amount=payload.amount,
             currency=payload.currency,
         ),
-        received_at=received_at,
+        clock=clock,
     )
     if outcome.replayed:
         response.headers["Idempotent-Replayed"] = "true"
     return PaymentConfirmationResponse.model_validate_json(
         outcome.confirmation.response_snapshot
     )
+
+
+@router.get(
+    "/internal/confirmation-receipts/{confirmation_id}",
+    response_model=ConfirmationReceiptResponse,
+    tags=["diagnostics"],
+)
+def retrieve_confirmation_receipt(
+    confirmation_id: str, session: SessionDependency
+) -> ConfirmationReceiptResponse:
+    receipt = session.get(ConfirmationReceiptRecord, confirmation_id)
+    if receipt is None:
+        raise ConfirmationNotFoundError(confirmation_id)
+    return ConfirmationReceiptResponse.from_record(receipt)
 
 
 @router.get(

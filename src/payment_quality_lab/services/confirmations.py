@@ -8,8 +8,8 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import uuid4
 
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -21,6 +21,7 @@ from payment_quality_lab.domain.payment import (
     expire,
 )
 from payment_quality_lab.persistence.models import (
+    ConfirmationReceiptRecord,
     LedgerEntryRecord,
     PaymentConfirmationRecord,
     PaymentRecord,
@@ -63,6 +64,63 @@ class ConfirmationIdConflictError(RuntimeError):
 
 class ConfirmationNotFoundError(LookupError):
     """Requested internal confirmation evidence does not exist."""
+
+
+class ConfirmationProcessingUnavailableError(RuntimeError):
+    """Receipt remains pending and can be retried or recovered."""
+
+
+def _begin_coordinated_write(session: Session) -> None:
+    """Acquire SQLite's writer reservation before reading mutable decisions.
+
+    These service boundaries own their transaction. Discard only a clean read
+    transaction; refuse to commit or discard unrelated caller writes.
+    """
+    if session.new or session.dirty or session.deleted:
+        raise ValueError("Confirmation operations require a clean session")
+    if session.get_bind().dialect.name != "sqlite":
+        raise ValueError("Confirmation coordination currently supports SQLite only")
+    session.rollback()
+    session.expire_all()
+    session.execute(text("BEGIN IMMEDIATE"))
+
+
+def accept_confirmation(
+    session: Session,
+    *,
+    command: "ConfirmationCommand",
+    clock: Callable[[], datetime],
+) -> bool:
+    """Persist authenticated input; return whether this identity already exists.
+
+    The trusted clock is sampled after writer admission. Acceptance only exists
+    if this transaction commits. HTTP authentication precedes this function.
+    """
+    _begin_coordinated_write(session)
+    try:
+        receipt = session.get(ConfirmationReceiptRecord, command.confirmation_id)
+        if receipt is not None:
+            if receipt.request_fingerprint != command.fingerprint():
+                raise ConfirmationIdConflictError
+            session.commit()
+            return True
+        received_at = read_confirmation_clock(clock)
+        session.add(
+            ConfirmationReceiptRecord(
+                confirmation_id=command.confirmation_id,
+                request_fingerprint=command.fingerprint(),
+                payment_reference=command.payment_reference,
+                amount=command.amount,
+                currency=command.currency.value,
+                received_at=received_at,
+                completed=False,
+            )
+        )
+        session.commit()
+        return False
+    except Exception:
+        session.rollback()
+        raise
 
 
 @dataclass(frozen=True, slots=True)
@@ -264,6 +322,20 @@ def _apply_disposition(
         disposition is ConfirmationDisposition.LATE
         and PaymentStatus(payment.status) is PaymentStatus.AWAITING_PAYMENT
     ):
+        protecting = session.scalar(
+            select(ConfirmationReceiptRecord.confirmation_id)
+            .where(
+                ConfirmationReceiptRecord.payment_reference
+                == payment.payment_reference,
+                ConfirmationReceiptRecord.completed.is_(False),
+                ConfirmationReceiptRecord.amount == payment.amount,
+                ConfirmationReceiptRecord.currency == payment.currency,
+                ConfirmationReceiptRecord.received_at < payment.expires_at,
+            )
+            .limit(1)
+        )
+        if protecting is not None:
+            return
         _apply_expiry_transition(
             session,
             payment=payment,
@@ -275,10 +347,60 @@ def process_confirmation(
     session: Session,
     *,
     command: ConfirmationCommand,
-    received_at: datetime,
+    received_at: datetime | None = None,
+    clock: Callable[[], datetime] | None = None,
 ) -> ConfirmationOutcome:
-    """Classify and commit one authenticated confirmation atomically."""
-    received_at = _require_aware_utc(received_at, field_name="received_at")
+    """Commit receipt first, then finish its financial transaction.
+
+    Explicit received_at is a deterministic service-test input. HTTP callers
+    always supply a trusted callable, evaluated after database writer admission.
+    """
+    if (received_at is None) == (clock is None):
+        raise ValueError("Supply exactly one of clock or received_at")
+    if received_at is not None:
+        fixed = _require_aware_utc(received_at, field_name="received_at")
+
+        def clock() -> datetime:
+            return fixed
+
+    assert clock is not None
+    try:
+        replayed = accept_confirmation(session, command=command, clock=clock)
+    except SQLAlchemyError as error:
+        session.rollback()
+        raise ConfirmationProcessingUnavailableError from error
+    try:
+        outcome = complete_confirmation(session, command.confirmation_id)
+    except Exception as error:
+        raise ConfirmationProcessingUnavailableError(
+            "Confirmation processing unavailable; retry with the same confirmation ID"
+        ) from error
+    return ConfirmationOutcome(outcome.confirmation, replayed or outcome.replayed)
+
+
+def complete_confirmation(
+    session: Session, confirmation_id: str
+) -> ConfirmationOutcome:
+    """Finish one durable receipt under the same writer coordination as expiry."""
+    _begin_coordinated_write(session)
+    try:
+        return _complete_receipt(session, confirmation_id)
+    except Exception:
+        session.rollback()
+        raise
+
+
+def _complete_receipt(session: Session, confirmation_id: str) -> ConfirmationOutcome:
+    receipt = session.get(ConfirmationReceiptRecord, confirmation_id)
+    if receipt is None:
+        raise ConfirmationNotFoundError(confirmation_id)
+    command = ConfirmationCommand(
+        confirmation_id=receipt.confirmation_id,
+        payment_reference=receipt.payment_reference,
+        amount=receipt.amount,
+        currency=Currency(receipt.currency),
+    )
+    received_at = _as_utc(receipt.received_at)
     fingerprint = command.fingerprint()
     replay = _existing_outcome(
         session,
@@ -286,6 +408,7 @@ def process_confirmation(
         fingerprint=fingerprint,
     )
     if replay is not None:
+        session.commit()
         return replay
 
     payment = _payment_by_reference(session, command.payment_reference)
@@ -315,6 +438,7 @@ def process_confirmation(
             disposition=disposition,
             received_at=received_at,
         )
+        receipt.completed = True
         session.commit()
     except IntegrityError:
         session.rollback()
@@ -337,6 +461,38 @@ def process_confirmation(
     return ConfirmationOutcome(confirmation=confirmation, replayed=False)
 
 
+def recover_pending_confirmations(
+    session: Session, *, limit: int = 100
+) -> tuple[str, ...]:
+    """Resume a bounded set of receipts; each completion commits independently.
+
+    A failing item raises, leaving it pending. Earlier completions remain durable
+    and are excluded on retry. Concurrent recovery or caller retry is safe.
+    """
+    if type(limit) is not int or not 1 <= limit <= 1000:
+        raise ValueError("limit must be an integer between 1 and 1000")
+    _begin_coordinated_write(session)
+    try:
+        ids = tuple(
+            session.scalars(
+                select(ConfirmationReceiptRecord.confirmation_id)
+                .where(ConfirmationReceiptRecord.completed.is_(False))
+                .order_by(
+                    ConfirmationReceiptRecord.received_at,
+                    ConfirmationReceiptRecord.confirmation_id,
+                )
+                .limit(limit)
+            )
+        )
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    for confirmation_id in ids:
+        complete_confirmation(session, confirmation_id)
+    return ids
+
+
 def expire_due_payments(
     session: Session,
     *,
@@ -348,12 +504,26 @@ def expire_due_payments(
     if not 1 <= limit <= MAX_EXPIRY_BATCH_SIZE:
         raise ValueError(f"limit must be between 1 and {MAX_EXPIRY_BATCH_SIZE}")
 
+    _begin_coordinated_write(session)
+    protected_receipt = (
+        select(ConfirmationReceiptRecord.confirmation_id)
+        .where(
+            ConfirmationReceiptRecord.payment_reference
+            == PaymentRecord.payment_reference,
+            ConfirmationReceiptRecord.completed.is_(False),
+            ConfirmationReceiptRecord.amount == PaymentRecord.amount,
+            ConfirmationReceiptRecord.currency == PaymentRecord.currency,
+            ConfirmationReceiptRecord.received_at < PaymentRecord.expires_at,
+        )
+        .exists()
+    )
     statement = (
         select(PaymentRecord)
         .where(
             PaymentRecord.status == PaymentStatus.AWAITING_PAYMENT.value,
             PaymentRecord.expires_at.is_not(None),
             PaymentRecord.expires_at <= current,
+            ~protected_receipt,
         )
         .order_by(PaymentRecord.expires_at, PaymentRecord.id)
         .limit(limit)

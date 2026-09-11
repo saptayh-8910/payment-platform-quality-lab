@@ -22,8 +22,8 @@ stateDiagram-v2
 ```
 
 Partial capture and cancellation from the awaiting state are outside the
-current implemented scope. The confirmation-versus-expiry concurrency rule is
-planned but not yet proven.
+current implemented scope. SQLite writer coordination enforces the reviewed
+confirmation-versus-expiry rule; the E2 race report records forced interleavings.
 
 ## Decline reasons
 
@@ -71,6 +71,13 @@ Scheduled expiry uses the same transition as a late confirmation. It processes
 at most 100 payments by default, ordered by deadline and then payment ID. One
 bounded batch commits or rolls back as a unit. Repeating the operation does not
 change an already expired payment or create another lifecycle event.
+
+Matching on-time pending receipts protect awaiting payments from expiry. A
+receipt is committed before financial processing. Completion, caller retry,
+internal recovery, and expiry coordinate through the SQLite writer reservation.
+Final processing failure preserves the pending receipt and rolls back the
+financial transaction. See the [race and recovery report](quality/enhancements/e2-asynchronous-payment-confirmation/race-resolution-report.md)
+for the acceptance-time definition and internal recovery example.
 
 ## Financial invariants
 

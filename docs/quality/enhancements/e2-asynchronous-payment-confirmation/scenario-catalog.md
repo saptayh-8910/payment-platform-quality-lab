@@ -6,7 +6,7 @@
 |---|---|
 | Enhancement | 2: Asynchronous payment confirmation |
 | Repository position | After Enhancement 1 and UX-01 are implemented, reviewed, and closed |
-| Status | In progress; migration, creation, signed processing, replay, late, mismatch, unknown-reference, already-resolved, privacy, and scheduled expiry scenarios have executable evidence; forced race, cancellation, reconciliation expansion, localization, and closeout remain |
+| Status | In progress; creation, confirmation, scheduled expiry, and SQLite race/recovery scenarios have executable evidence; cancellation, reconciliation expansion, localization, and closeout remain |
 | Test basis | [Payment requirements](docs/payment-requirements.md), [risk-based test plan](docs/test-plan.md), and completed idempotency, webhook, and reconciliation evidence from Milestones 4–5 |
 | Revision note | Revised after review. Renamed from an earlier "Milestone 9" draft, which incorrectly reused closed milestone numbering and the term "settlement," which already has a distinct meaning in this project |
 
@@ -297,6 +297,16 @@ expire_due_payments(now)
 
 ### Concurrency
 
+Implementation clarification (owner-approved RACE-01 review): `received_at`
+is sampled after acquiring SQLite writer admission. It becomes durable only
+if the receipt transaction commits. The commit and later processing are separate;
+it is not an HTTP arrival timestamp or an exact disk commit timestamp. Pending
+is processing status on the receipt, separate from final business dispositions.
+Both scheduled and late-confirmation expiry respect matching on-time pending
+receipts. Completion and recovery use the same database coordination.
+The [race review](race-resolution-review.md) defines cases A through N, and the
+[race report](race-resolution-report.md) records the executed evidence.
+
 Confirmation and expiry can be invoked concurrently for the same payment.
 The durable receipt-time rule decides the outcome; thread scheduling or the
 order in which later processing finishes does not change it. An atomic
@@ -500,8 +510,8 @@ Scenario Outline: Awaiting-payment guidance follows the selected language
    `SEC-C01`, `SEC-C02`, `REC-C03`, `PRIV-C01`.
 3. Completed: add bounded, deterministic `expire_due_payments` processing using
    the same expiry transition and injected time. Test: `CONF-03`.
-4. Add durable-receipt-time race resolution with an atomic conditional
-   lifecycle update. Tests: `RACE-01`.
+4. Completed: durable receipt, final processing, bounded recovery, and SQLite
+   writer coordination. Tests: `RACE-01` cases A through N.
 5. Add cancellation and its lifecycle event. Test: `CANC-01`, including the
    remaining cancelled-payment form of `already_resolved`.
 6. Extend reconciliation with separate payment outcomes, event dispositions,

@@ -7,8 +7,11 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from payment_quality_lab.main import DEFAULT_CONFIRMATION_SIGNING_SECRET
+from payment_quality_lab.persistence.models import ConfirmationReceiptRecord
+from payment_quality_lab.services import confirmations
 from payment_quality_lab.services.webhooks import sign_webhook
 
 CREATED_AT = datetime(2026, 9, 9, 2, 0, tzinfo=UTC)
@@ -136,6 +139,8 @@ def test_sec_c02_invalid_signature_has_zero_side_effects(
     assert len(client.get("/webhooks/events").json()) == 1
     diagnostic = client.get("/internal/payment-confirmations/cnf_confirmation_0001")
     assert diagnostic.status_code == 404
+    with app.state.session_factory() as session:
+        assert list(session.scalars(select(ConfirmationReceiptRecord))) == []
 
 
 def test_authenticated_malformed_payload_returns_safe_422(
@@ -163,6 +168,40 @@ def test_authenticated_malformed_payload_returns_safe_422(
         "message": "Confirmation payload does not match the required contract",
     }
     assert client.get(f"/payments/{payment['id']}").json() == payment
+
+    with app.state.session_factory() as session:
+        assert list(session.scalars(select(ConfirmationReceiptRecord))) == []
+
+
+def test_processing_failure_returns_safe_503_and_retry_completes_original_receipt(
+    app, client, monkeypatch
+):
+    payment = create_delayed_payment(app, client)
+    payload = confirmation_payload(payment["payment_reference"])
+    original = confirmations.create_outbox_event
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("private failure details")
+
+    monkeypatch.setattr(confirmations, "create_outbox_event", fail)
+    response = signed_confirmation(app, client, payload)
+    assert response.status_code == 503
+    assert response.json() == {
+        "code": "confirmation_processing_unavailable",
+        "message": "Retry with the same confirmation ID and payload",
+    }
+    receipt_url = "/internal/confirmation-receipts/cnf_confirmation_0001"
+    receipt = client.get(receipt_url).json()
+    assert receipt["completed"] is False
+    assert client.get("/internal/confirmation-receipts/cnf_missing").status_code == 404
+    assert client.get(f"/payments/{payment['id']}").json() == payment
+    monkeypatch.setattr(confirmations, "create_outbox_event", original)
+    retry = signed_confirmation(
+        app, client, payload, received_at=CREATED_AT + timedelta(hours=80)
+    )
+    assert retry.status_code == 200 and retry.headers["Idempotent-Replayed"] == "true"
+    assert client.get(receipt_url).json() == {**receipt, "completed": True}
+    assert len(client.get(f"/payments/{payment['id']}/ledger").json()) == 1
 
 
 def test_dup_01_identical_replay_returns_original_safe_result_once(
