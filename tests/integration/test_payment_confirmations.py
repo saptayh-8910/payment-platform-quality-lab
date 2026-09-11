@@ -14,6 +14,7 @@ from payment_quality_lab.persistence.database import (
     create_session_factory,
 )
 from payment_quality_lab.persistence.models import (
+    ConfirmationReceiptRecord,
     LedgerEntryRecord,
     PaymentConfirmationRecord,
     PaymentRecord,
@@ -119,7 +120,7 @@ def test_conf_02_capture_commits_inbox_ledger_payment_and_event_together(
     ]
 
 
-def test_conf_02_event_failure_rolls_back_every_confirmation_effect(
+def test_conf_02_event_failure_preserves_receipt_but_rolls_back_financial_effects(
     session: Session,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -130,7 +131,7 @@ def test_conf_02_event_failure_rolls_back_every_confirmation_effect(
 
     monkeypatch.setattr(confirmations, "create_outbox_event", fail_event)
 
-    with pytest.raises(RuntimeError, match="simulated event failure"):
+    with pytest.raises(RuntimeError, match="Confirmation processing unavailable"):
         process_confirmation(
             session,
             command=command(payment.payment_reference or ""),
@@ -143,6 +144,8 @@ def test_conf_02_event_failure_rolls_back_every_confirmation_effect(
     assert stored_payment.authorized_amount == stored_payment.captured_amount == 0
     assert stored_payment.version == 1
     assert count(session, PaymentConfirmationRecord) == 0
+    receipt = session.scalar(select(ConfirmationReceiptRecord))
+    assert receipt is not None and receipt.completed is False
     assert count(session, LedgerEntryRecord) == 0
     assert count(session, WebhookEventRecord) == 1
 
