@@ -671,8 +671,8 @@ def test_upgrade_backfills_completed_receipts_without_reapplying_money(lab):
         connection.execute(
             text("INSERT INTO alembic_version VALUES ('0004_confirmations')")
         )
-    assert upgrade_database(str(lab[0].url)) == "0005_receipts"
-    assert upgrade_database(str(lab[0].url)) == "0005_receipts"
+    assert upgrade_database(str(lab[0].url)) == "0006_reports"
+    assert upgrade_database(str(lab[0].url)) == "0006_reports"
     with lab[0].connect() as connection:
         assert (
             connection.execute(text("SELECT * FROM payment_confirmations")).all()

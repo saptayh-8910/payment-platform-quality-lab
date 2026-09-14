@@ -31,7 +31,11 @@ KNOWN_LEGACY_MISSING_COLUMNS = {
         "expires_at",
     },
 }
-KNOWN_LEGACY_MISSING_TABLES = {"payment_confirmations", "confirmation_receipts"}
+KNOWN_LEGACY_MISSING_TABLES = {
+    "payment_confirmations",
+    "confirmation_receipts",
+    "confirmation_reports",
+}
 
 
 def upgrade() -> None:

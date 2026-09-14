@@ -252,7 +252,9 @@ The webhook delivery slice resolved these decisions:
 - Settlement uses immutable ledger entries with `created_at <= cutoff`.
 - Only payments with a positive net captured balance require a settlement row.
 - Settlement source lines remain ordered so duplicate evidence is repeatable.
-- Reconciliation is read-only and never creates a financial effect.
+- Financial reconciliation never creates a financial effect. E2 adds a saved
+  confirmation section on first report generation; existing financial checks
+  still read their independent sources without changing them.
 - JPY and USD totals are grouped separately; no cross-currency total is valid.
 
 Enhancement 1 resolved these decisions:

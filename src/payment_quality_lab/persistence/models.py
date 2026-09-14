@@ -218,6 +218,16 @@ class ConfirmationReceiptRecord(Base):
     completed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
 
 
+class ConfirmationReportRecord(Base):
+    """Immutable confirmation evidence saved once per settlement batch."""
+
+    __tablename__ = "confirmation_reports"
+    batch_id: Mapped[str] = mapped_column(
+        ForeignKey("settlement_batches.id"), primary_key=True
+    )
+    payload: Mapped[str] = mapped_column(Text)
+
+
 class PaymentConfirmationRecord(Base):
     """Durable, minimal evidence for one authenticated confirmation."""
 

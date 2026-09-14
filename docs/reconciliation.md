@@ -104,7 +104,29 @@ ordered details, counts, and totals.
 |---|---|
 | `POST /settlement-batches` | Import an immutable synthetic batch and source rows |
 | `GET /settlement-batches/{id}` | Inspect the imported batch in source-line order |
-| `POST /reconciliation-reports` | Generate a read-only multi-source report |
+| `POST /reconciliation-reports` | Compare financial sources and save confirmation evidence on first generation |
+
+## Confirmation evidence through cutoff
+
+`confirmation_section` is separate from the existing financial summary. It
+records `cutoff`, `generated_at`, delayed-payment outcome counts, final
+confirmation disposition counts, pending receipt count, and observed anomaly
+amounts grouped by submitted currency and disposition. Unknown references do
+not become invented payments. Replay and ID conflicts do not add dispositions.
+Anomaly amounts never enter expected settlement totals.
+
+The first request saves this section for the settlement batch. Later requests
+return the same section, while the existing current source-health checks may
+change. This is effective-through-cutoff evidence known at generation, not an
+exact reconstruction of what was known at the cutoff. Lifecycle events provide
+the effective state; current mutable payment status alone is not used.
+
+Recovery of a pre-cutoff pending receipt can appear in a new batch's report,
+but cannot rewrite the saved section. To refresh, create another batch using
+the desired cutoff and source rows. Revision `0006_reports` creates empty
+snapshot storage; it does not invent earlier reports for historical batches.
+First generation and competing confirmation writers are coordinated on SQLite.
+Saving the section is atomic; a failed write leaves no partial section.
 
 The report contains payment references and financial evidence but never includes
 the synthetic payment token or webhook signing secret.

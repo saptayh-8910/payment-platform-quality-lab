@@ -70,9 +70,9 @@ Each accepted transition after creation increments the payment version once and
 commits its related evidence in the same transaction. Invalid transitions and
 over-refunds leave payment and ledger state unchanged.
 
-The current automated baseline contains 386 pytest tests with branch-aware
-coverage above the required 85% gate, 45 Node tests, and 11 Cucumber scenarios
-with 100 steps.
+The current automated baseline contains 397 pytest tests with branch-aware
+coverage above the required 85% gate, 49 Node tests, and 18 Cucumber scenarios
+with 140 steps.
 GitHub Actions runs the Python suite on Python 3.12 and 3.14 and runs the
 complete browser gate in Chromium.
 
@@ -190,8 +190,20 @@ receipt protects the payment from both scheduled and late-confirmation expiry.
 Receipt acceptance, completion, and expiry use SQLite writer coordination.
 Pending receipts survive processing failures and can be resumed by identical
 caller retry or bounded internal recovery. Forced connection races verify these
-paths. Cancellation from the awaiting state, reconciliation changes, and customer
-messaging remain reviewed future slices.
+paths. Awaiting cancellation, saved confirmation reporting, and EN/JA status
+views complete the E2 scope. See the [E2 closing report](docs/quality/enhancements/e2-asynchronous-payment-confirmation/closing-report.md)
+for executed evidence and limits.
+
+Select **Await later confirmation** in the simulator controls to show the
+reference and Japan-time deadline. **Check payment status** reads the latest
+backend result without creating another payment. The browser does not confirm
+or expire a payment merely because time passes.
+
+`POST /reconciliation-reports` now includes a saved `confirmation_section`.
+This section is frozen on first generation for its batch, with cutoff and
+generation timestamps. Existing financial comparisons remain live and separate.
+Generate a new settlement batch to obtain fresh confirmation evidence, including
+later recovery. Observed anomaly amounts are not money received.
 
 ## Quick start
 
