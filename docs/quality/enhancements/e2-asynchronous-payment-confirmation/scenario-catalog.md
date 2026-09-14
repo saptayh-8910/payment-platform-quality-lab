@@ -6,7 +6,7 @@
 |---|---|
 | Enhancement | 2: Asynchronous payment confirmation |
 | Repository position | After Enhancement 1 and UX-01 are implemented, reviewed, and closed |
-| Status | In progress; creation, confirmation, scheduled expiry, SQLite race/recovery, and awaiting cancellation have executable evidence; reconciliation expansion, localization, and closeout remain |
+| Status | E2 local implementation and verification complete; see [closing report](closing-report.md) for evidence, limits, and remote release gate |
 | Test basis | [Payment requirements](docs/payment-requirements.md), [risk-based test plan](docs/test-plan.md), and completed idempotency, webhook, and reconciliation evidence from Milestones 4–5 |
 | Revision note | Revised after review. Renamed from an earlier "Milestone 9" draft, which incorrectly reused closed milestone numbering and the term "settlement," which already has a distinct meaning in this project |
 
@@ -361,9 +361,13 @@ never added into existing ledger or expected-settlement totals and are never
 described as money received by the platform.
 
 Confirmation reporting uses the reconciliation batch cutoff consistently.
-Only confirmation records with `received_at <= cutoff` contribute to that
-report, and the payment outcome is derived as of the same cutoff. A
-confirmation received after the cutoff cannot change an earlier report.
+Only confirmation records with `received_at <= cutoff` contribute. Payment
+outcomes use lifecycle evidence effective through that cutoff. The approved
+[closeout clarification](closeout-review.md) freezes the confirmation section
+on first generation for a batch, with cutoff and generation timestamps. A
+pre-cutoff pending receipt completed later can appear in a new batch's section,
+not mutate the saved section. This is not exact historical processing-time
+reconstruction; existing financial/source-health reporting remains separate.
 
 ### Lifecycle webhook events
 
@@ -383,9 +387,9 @@ confirmation received after the cutoff cannot change an earlier report.
 
 - The checkout shows an awaiting-payment view with the reference and expiry
   deadline, and an expired view, both in English and Japanese.
-- Exact wording, including how the expired view avoids implying a physical
-  payment was lost, needs owner review before implementation — the same
-  review step already used for decline messaging.
+- Exact EN/JA wording was approved in the [closeout review](closeout-review.md).
+  Expiry does not imply that physical money was lost. Status refresh reads the
+  backend; the client clock does not expire requests or create confirmations.
 - No internal state name, confirmation identity, or anomaly classification
   is shown to the customer.
 
@@ -518,15 +522,16 @@ Scenario Outline: Awaiting-payment guidance follows the selected language
    [execution report](cancellation-report.md). Pending matching on-time receipts
    block cancellation; otherwise cancellation and explicit expiry are ordered
    by the first committed terminal transition, even after the deadline.
-6. Extend reconciliation with separate payment outcomes, event dispositions,
+6. Completed: extend reconciliation with separate payment outcomes, event dispositions,
    currency-separated anomaly reporting, and cutoff behavior. Tests:
    `REC-C01`, `REC-C02`, `REC-C03`, `REC-C04`.
-7. Add English and Japanese messaging, pending owner review of exact
-   wording. Tests: `LOC-C01`.
-8. Run a focused exploratory session on whether the stored evidence is minimal
+7. Completed: English and Japanese messaging with owner-approved wording.
+   Tests: `LOC-C01`; closeout UI cases U1–U9.
+8. Completed: a focused agent-led exploratory session on whether the stored evidence is minimal
    and whether messaging could mislead a customer about the safety of their
    money.
-9. Run the complete project gate and write the closing quality report.
+9. Local project gate complete; [closing report](closing-report.md) records
+   evidence. Remote CI is the remaining release gate before merge.
 
 ## Decisions carried into this revision
 

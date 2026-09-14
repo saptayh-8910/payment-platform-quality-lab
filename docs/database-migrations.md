@@ -1,5 +1,11 @@
 # Database migrations
 
+E2 closeout adds revision `0006_reports`: immutable confirmation-section storage
+keyed by settlement batch. Existing payments, ledger entries, receipts and final
+confirmations are unchanged. Historical batches have no saved section until
+first generation; generation timestamps are never backdated. Downgrade is
+blocked because it would discard report evidence.
+
 ## Purpose
 
 The application stores payment, ledger, idempotency, confirmation, webhook,
