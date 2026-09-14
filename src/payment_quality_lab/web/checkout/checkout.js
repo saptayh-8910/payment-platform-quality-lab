@@ -6,9 +6,11 @@ import {
   UI_STATES,
 } from "/checkout/assets/checkout-view.js";
 import { guidanceForDecline } from "/checkout/assets/decline-messages.js";
+import { asyncCopy, formatDeadline } from "/checkout/assets/async-messages.js";
 
 const storedOutcomeByToken = Object.freeze({
   tok_approved: "approve",
+  tok_awaiting_confirmation: "await-confirmation",
   tok_declined_insufficient_funds: "decline-insufficient-funds",
   tok_declined_limit_exceeded: "decline-limit-exceeded",
   tok_declined_expired: "decline-expired",
@@ -140,6 +142,11 @@ const copy = {
     footer: "テスト用シミュレーターです。実際の決済情報や個人情報は処理しません。",
   },
 };
+
+Object.assign(copy.en, asyncCopy.en);
+Object.assign(copy.ja, asyncCopy.ja);
+let refreshing = false;
+let refreshFailed = false;
 
 const elements = {
   form: document.querySelector("#checkout-form"),
@@ -298,6 +305,12 @@ function renderOrderPreview() {
 }
 
 function renderUi({ focusResult = false } = {}) {
+  if (uiState !== UI_STATES.FINAL) {
+    document.querySelector("#refresh-payment").hidden = true;
+    document.querySelector("#refresh-warning").hidden = true;
+    const details = document.querySelector("#delayed-details");
+    if (details) details.hidden = true;
+  }
   const busy = uiState === UI_STATES.PROCESSING || uiState === UI_STATES.RESTORING;
   const showsResult = [UI_STATES.FINAL, UI_STATES.UNCERTAIN, UI_STATES.ERROR].includes(uiState);
 
@@ -451,6 +464,43 @@ function renderFinalResult() {
     : copy[language].declinedStatus;
   elements.retry.hidden = true;
   elements.newPayment.hidden = false;
+  const statusCopy = asyncCopy[language][currentPayment.status];
+  if (statusCopy) {
+    elements.resultTitle.textContent = statusCopy[0];
+    elements.resultGuidance.textContent = statusCopy[1];
+    elements.paymentStatus.textContent = statusCopy[0];
+    const success = ["CAPTURED", "PARTIALLY_REFUNDED", "REFUNDED"].includes(currentPayment.status);
+    elements.resultPanel.dataset.result = success ? "success" : "uncertain";
+    elements.resultStatus.textContent = success ? "✓" : "i";
+  }
+  const delayed = currentPayment.payment_flow === "ASYNCHRONOUS_CONFIRMATION";
+  let details = document.querySelector("#delayed-details");
+  if (!details) {
+    details = document.createElement("dl");
+    details.id = "delayed-details";
+    details.className = "payment-details";
+    elements.paymentDetails.after(details);
+  }
+  details.hidden = !delayed;
+  details.replaceChildren();
+  if (delayed) {
+    for (const [label, value] of [[copy[language].paymentReference, currentPayment.payment_reference],
+      [copy[language].deadline, formatDeadline(currentPayment.expires_at, language)]]) {
+      const row = document.createElement("div");
+      const term = document.createElement("dt");
+      const description = document.createElement("dd");
+      term.textContent = label;
+      description.textContent = value;
+      row.append(term, description);
+      details.append(row);
+    }
+  }
+  const refresh = document.querySelector("#refresh-payment");
+  refresh.hidden = !delayed;
+  refresh.disabled = refreshing;
+  document.querySelector("#refresh-warning").hidden = !refreshFailed;
+  document.querySelector("#refresh-warning").textContent = refreshFailed ? copy[language].stale : "";
+  elements.newPayment.disabled = refreshing;
   elements.liveStatus.textContent = elements.resultTitle.textContent;
 }
 
@@ -477,6 +527,9 @@ function renderErrorResult() {
 }
 
 function resetCheckout() {
+  refreshFailed = false;
+  document.querySelector("#refresh-warning").hidden = true;
+  document.querySelector("#delayed-details")?.replaceChildren();
   currentPayment = null;
   currentErrorKey = "generalError";
   clearActiveSubmission();
@@ -499,7 +552,9 @@ function populateControlsFromPayment(payment) {
   elements.amount.value = displayAmountFromMinorUnits(payment.amount, payment.currency);
   elements.currency.value = payment.currency;
   elements.outcome.value =
-    payment.status === "AUTHORIZED"
+    payment.payment_flow === "ASYNCHRONOUS_CONFIRMATION"
+      ? "tok_awaiting_confirmation"
+      : payment.status !== "DECLINED"
       ? "tok_approved"
       : (tokenByDeclineReason[payment.decline_reason] ?? "tok_declined_unknown");
 }
@@ -550,6 +605,22 @@ elements.form.addEventListener("submit", (event) => {
   event.preventDefault();
   if (!elements.submit.disabled) {
     void submitPayment();
+  }
+});
+document.querySelector("#refresh-payment").addEventListener("click", async () => {
+  if (refreshing || !currentPayment) return;
+  refreshing = true;
+  refreshFailed = false;
+  renderFinalResult();
+  try {
+    const response = await fetch(`/payments/${encodeURIComponent(currentPayment.id)}`);
+    if (!response.ok) throw new Error("Status unavailable");
+    currentPayment = await response.json();
+  } catch {
+    refreshFailed = true;
+  } finally {
+    refreshing = false;
+    renderFinalResult();
   }
 });
 elements.retry.addEventListener("click", () => void submitPayment());

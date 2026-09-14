@@ -120,6 +120,7 @@
                       >
                         Decline — limit exceeded
                       </option>
+                      <option value="tok_awaiting_confirmation" data-i18n="delayedOutcome">Await later confirmation</option>
                       <option value="tok_declined_expired" data-i18n="declineExpired">
                         Decline — expired payment method
                       </option>
@@ -195,6 +196,7 @@
             hidden
           >
             <div id="result-status" class="result-status" aria-hidden="true"></div>
+            <p id="refresh-warning" role="status" hidden></p>
             <div class="result-copy">
               <p class="eyebrow" data-i18n="resultLabel">Result</p>
               <h2 id="result-title"></h2>
@@ -209,6 +211,7 @@
             </dl>
 
             <div class="result-actions">
+              <button id="refresh-payment" class="secondary-action" type="button" hidden data-i18n="refresh">Check payment status</button>
               <button id="retry-payment" class="primary-action" type="button" hidden data-i18n="retry">
                 Retry
               </button>

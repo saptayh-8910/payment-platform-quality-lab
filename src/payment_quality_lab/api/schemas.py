@@ -531,6 +531,7 @@ class ReconciliationReportResponse(BaseModel):
     cutoff: datetime
     summary: ReconciliationSummaryResponse
     items: list[ReconciliationItemResponse]
+    confirmation_section: dict | None = None
 
     @classmethod
     def from_result(

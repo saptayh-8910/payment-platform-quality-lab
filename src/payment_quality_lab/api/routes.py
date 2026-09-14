@@ -532,10 +532,16 @@ def create_reconciliation_report(
     payload: ReconciliationRequest,
     session: SessionDependency,
 ) -> ReconciliationReportResponse:
-    """Compare payment, ledger, webhook, and settlement sources read-only."""
-    return ReconciliationReportResponse.from_result(
+    """Compare sources and save the confirmation section on first generation."""
+    from payment_quality_lab.services.confirmation_reporting import confirmation_section
+
+    response = ReconciliationReportResponse.from_result(
         reconcile_settlement_batch(
             session,
             batch_id=payload.settlement_batch_id,
         )
     )
+    response.confirmation_section = confirmation_section(
+        session, payload.settlement_batch_id
+    )
+    return response
