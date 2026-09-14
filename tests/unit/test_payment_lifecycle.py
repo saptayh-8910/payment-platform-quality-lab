@@ -79,6 +79,12 @@ def test_cancel_preserves_authorized_balance_without_capture() -> None:
     assert result == state(PaymentStatus.CANCELLED)
 
 
+def test_cancel_awaiting_preserves_zero_balances() -> None:
+    assert cancel(state(PaymentStatus.AWAITING_PAYMENT, authorized=0)) == state(
+        PaymentStatus.CANCELLED, authorized=0
+    )
+
+
 @pytest.mark.parametrize(
     "status",
     [
@@ -89,7 +95,7 @@ def test_cancel_preserves_authorized_balance_without_capture() -> None:
         PaymentStatus.CANCELLED,
     ],
 )
-def test_cancel_rejects_every_non_authorized_state(status: PaymentStatus) -> None:
+def test_cancel_rejects_disallowed_states(status: PaymentStatus) -> None:
     captured = (
         1000
         if status

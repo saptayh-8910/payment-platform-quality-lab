@@ -85,11 +85,22 @@ change.
 
 ### 3.2 Capture and cancellation
 
-- Only an authorized payment may be captured or cancelled.
+- Only an authorized payment may use the capture endpoint. Cancellation accepts
+  AUTHORIZED or AWAITING_PAYMENT without a matching on-time pending receipt.
 - Capture must never exceed the authorized amount.
 - A successful capture creates exactly one capture ledger entry.
 - Cancelling an authorization creates one cancellation ledger entry and must
   prevent future capture.
+- Cancelling an awaiting payment creates no ledger entry, preserves zero
+  balances and historical reference/expiry, and creates one cancelled event.
+- A protecting pending receipt produces 409 `confirmation_pending`, with no
+  committed cancellation claim or mutation. Resolve it through retry/recovery.
+- Cancellation does not silently execute expiry. An overdue awaiting payment
+  without protection remains cancellable until expiry commits. All competing
+  operations use the shared SQLite writer ordering before decisions.
+- A later confirmation for CANCELLED is retained as `already_resolved` without
+  financial effects. Database cancellation errors produce safe retryable 503
+  `cancellation_unavailable`; retry uses the same idempotency key.
 - Repeating a successful operation with the same idempotency key must not create
   another ledger entry.
 

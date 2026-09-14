@@ -185,17 +185,17 @@ def test_optimistic_lock_rejects_stale_competing_transition(
         stale_payment = stale.get(PaymentRecord, payment_id)
         assert stale_payment is not None
         stale.commit()
-        capture_payment(
+        cancel_payment(
             winner,
             payment_id=payment_id,
-            idempotency_key="winning-capture-key",
+            idempotency_key="winning-cancellation-key",
         )
 
         with pytest.raises(ConcurrentPaymentUpdateError):
-            cancel_payment(
+            capture_payment(
                 stale,
                 payment_id=payment_id,
-                idempotency_key="stale-cancellation-key",
+                idempotency_key="stale-capture-key",
             )
     finally:
         winner.close()
@@ -204,10 +204,10 @@ def test_optimistic_lock_rejects_stale_competing_transition(
     with factory() as session:
         payment = session.get(PaymentRecord, payment_id)
         assert payment is not None
-        assert (payment.status, payment.version) == ("CAPTURED", 2)
+        assert (payment.status, payment.version) == ("CANCELLED", 2)
         assert [
             entry.operation for entry in get_ledger_entries(session, payment_id)
-        ] == ["AUTHORIZATION", "CAPTURE"]
+        ] == ["AUTHORIZATION", "CANCEL"]
         assert count(session, IdempotencyRecord) == 2
 
 
