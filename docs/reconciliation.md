@@ -92,11 +92,12 @@ If a JPY payment has a USD settlement row, the summary shows the expected JPY
 shortage and the observed USD amount independently. See
 [DEF-004](defects/DEF-004-mixed-currency-reconciliation-total.md).
 
-## Read-only and repeatable behavior
+## Financial record safety and repeatable behavior
 
 Generating a report does not create or update payment, ledger, webhook,
-settlement, or projection records. Running the same batch again returns the same
-ordered details, counts, and totals.
+settlement, or projection records. The saved confirmation section remains
+unchanged after its first generation. Checks against current financial records
+run again, so those results may change when the underlying records change.
 
 ## HTTP endpoints
 

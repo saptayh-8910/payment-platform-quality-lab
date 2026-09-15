@@ -1,6 +1,6 @@
 # RACE-01: Confirmation and expiry review
 
-Status: Owner approved on 2026-09-11. Implementation and execution evidence are
+Status: Design decisions and scenarios approved on 2026-09-11. Implementation and execution evidence are
 recorded in [the race report](race-resolution-report.md).
 
 ## Business purpose
@@ -38,9 +38,10 @@ only to the captured total.
 
 Both paths enforce the same financial invariant. The canonical catalog already
 specifies this operation, and PR #22 implemented it. This proposal retains that
-design; it does not introduce it. If the owner intended to forbid distinct
-ledger operations as well as distinct invariant regimes, that is an unresolved
-requirements disagreement to settle before implementation.
+design; it does not introduce it. The approved decision retains
+`CONFIRMATION_CAPTURE` as a separate ledger operation. The existing
+`captured_amount <= authorized_amount` rule applies to every payment flow;
+there is no separate financial rule for delayed payments.
 
 ### Receipt and processing rules
 
@@ -131,5 +132,6 @@ recommended to fulfill the existing durable-receipt requirement. Choosing the
 simpler existing transaction instead would require revising that requirement
 and recording the resulting limitation explicitly.
 
-The owner approved retaining the distinct `CONFIRMATION_CAPTURE` operation and
-the receipt-and-recovery contract, including the 14 cases, before implementation.
+The separate `CONFIRMATION_CAPTURE` operation and the receipt-and-recovery
+rules, including the 14 test cases, were reviewed and approved before
+implementation.

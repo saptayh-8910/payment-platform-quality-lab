@@ -1,6 +1,6 @@
 # E2 consolidated closeout review
 
-Status: Owner approved on 2026-09-14; execution recorded in [closing report](closing-report.md).
+Status: Design decisions and scenarios approved on 2026-09-14; execution recorded in [closing report](closing-report.md).
 Baseline: main `67f3d64` after PR #25. Date: 2026-09-14.
 Delivery: work locally; one milestone push and PR after local verification.
 
@@ -124,7 +124,8 @@ not regress or be incorrectly relabelled as declines.
 
 ## Local completion and single-push gate
 
-1. Owner reviews reporting semantics, scenarios, and customer copy above.
+1. Review the reporting rules, test scenarios, and customer messages above
+   before implementation. Completed in the recorded 2026-09-14 review.
 2. Implement reporting and tests, then UI and tests, in local commits.
 3. Execute exploratory charter: awaiting to confirmed/expired/cancelled,
    refresh failure, reload, language switch, keyboard and mobile layouts.

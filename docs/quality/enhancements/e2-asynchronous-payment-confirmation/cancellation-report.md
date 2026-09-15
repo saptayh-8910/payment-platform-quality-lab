@@ -82,7 +82,7 @@ The old assertion was not simply removed.
 - 45 Node tests passed; TypeScript check passed.
 - 11 Chromium Cucumber scenarios and 100 steps passed.
 - Ruff lint and formatting passed.
-- PR CI results will be recorded in the PR before handoff.
+- PR CI results will be recorded in the PR before merging.
 
 ## Remaining work
 

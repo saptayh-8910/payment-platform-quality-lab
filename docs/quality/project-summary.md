@@ -3,9 +3,10 @@
 ## Project decision
 
 The initial eight-milestone project and the E1, UX-01, and E2 enhancements are
-implemented and tested with documented limitations. As of 2026-09-14, E2's
+implemented and tested with documented limitations. As of 2026-09-15, E2's
 [PR #26](https://github.com/saptayh-8910/payment-platform-quality-lab/pull/26)
-has six passing CI checks but remains open for owner review and merge.
+passed all six CI checks and was merged. Its branch was deleted. Documentation
+is being reviewed before the release tag is created.
 The simulator demonstrates payment quality engineering across requirements,
 code, APIs, databases, browsers, exploratory testing, performance, CI, and
 plain-English release evidence.
@@ -230,9 +231,11 @@ completion is separate from the final release steps below.
   normal startup, API lifecycle and performance smoke. See the
   [verification record](fresh-clone-verification.md), including its dependency
   warning and environment limits.
-- [x] Final closeout documentation collected for one PR #26 update. The PR's
-  latest checks are the release gate for the resulting head.
-- [ ] Owner review and merge of PR #26.
+- [x] Final E2 closeout documentation collected in PR #26; all six checks passed
+  on final documentation head `132b475` before merge.
+- [x] Review and merge PR #26.
+- [ ] Check that documentation matches the completed implementation, then merge
+  the corrections.
 - [ ] Create the release tag after the final checks and merge.
 
 Future enhancement work will keep the same review order: approve the scenario

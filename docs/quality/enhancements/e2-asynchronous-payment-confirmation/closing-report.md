@@ -6,6 +6,14 @@ Reviewed scope: [closeout decisions and scenarios](closeout-review.md).
 
 ## Business situation
 
+Closure update (2026-09-15): PR #26 passed all six CI checks on its final
+documentation head `132b475` and was merged. The original pending-at-creation
+status and results below describe the report when it was written. Earlier
+milestone reports keep their original results and scope. Release tagging is a
+separate step. Final CI evidence:
+[Python and browser checks](https://github.com/saptayh-8910/payment-platform-quality-lab/actions/runs/34809566836)
+and [performance checks](https://github.com/saptayh-8910/payment-platform-quality-lab/actions/runs/34809566843).
+
 Some payments are created now and confirmed later. A request can remain open
 while a confirmation is delayed, duplicated, incorrect, or missing. A checkout
 must not call that a decline, and a report must not count an attempted amount
@@ -126,7 +134,7 @@ keyboard interaction are not substitutes for those checks.
 
 ## Release recommendation and limits
 
-Ready for the remote CI gate and owner review. Do not merge on local results
+At report creation: ready for the remote CI gate and review. Do not merge on local results
 alone. All work was kept local until this consolidated milestone delivery.
 
 SQLite serializes writers. Internal diagnostic endpoints lack production

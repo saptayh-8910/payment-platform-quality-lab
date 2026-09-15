@@ -13,6 +13,11 @@ boundaries.
 |---|---|---|---|
 | Critical | Duplicate authorization, capture, or refund | Customer or merchant financial loss | Idempotency, concurrency, and ledger integration tests |
 | Critical | Invalid lifecycle transition succeeds | Incorrect or unrecoverable payment state | Domain state-machine and API negative tests |
+| Critical | Confirmation competes with expiry or cancellation | A valid payment is rejected or processed incorrectly | Forced races through separate database connections |
+| Critical | Processing fails after a confirmation receipt is saved | Accepted work is lost | Failure and recovery tests check receipt survival and original receipt time |
+| High | Repeated or incorrect confirmations change financial totals | Reports show money that was not captured | Repeated IDs, changed details, unknown references, and amount/currency mismatch tests |
+| High | Later work changes a saved confirmation report | Previously reviewed evidence changes | Save a report, complete pending work, and verify the original section is unchanged |
+| High | Checkout shows an outdated delayed-payment result | Customer misunderstands whether payment is complete | English and Japanese status-refresh and page-reload browser tests |
 | Critical | Amount or currency precision error | Incorrect financial totals | Unit and property-based invariant tests |
 | High | Ambiguous timeout causes an unsafe retry | Duplicate effect or unknown customer outcome | Post-commit timeout E2E scenario |
 | High | Duplicate or out-of-order webhook changes state twice | Incorrect downstream records | Webhook consumer integration tests |

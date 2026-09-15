@@ -61,8 +61,9 @@ database, and generated reports remain local under
 This document records the commands and outcomes; remote CI artifacts and PR
 checks provide the separate automated release evidence.
 
-## Release handoff
+## Release checklist
 
-The tested implementation is unchanged by this documentation update. The
-summary and this record are delivered together to PR #26. Verify its latest
-checks before owner merge; create the release tag afterward.
+The tested implementation was unchanged by the documentation update in PR #26.
+The summary and this record were delivered together. PR #26 passed all six CI
+checks and was merged. Review and merge the final documentation corrections
+before creating the release tag.

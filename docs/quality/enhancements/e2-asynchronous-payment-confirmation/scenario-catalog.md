@@ -6,8 +6,8 @@
 |---|---|
 | Enhancement | 2: Asynchronous payment confirmation |
 | Repository position | After Enhancement 1 and UX-01 are implemented, reviewed, and closed |
-| Status | E2 local implementation and verification complete; see [closing report](closing-report.md) for evidence, limits, and remote release gate |
-| Test basis | [Payment requirements](docs/payment-requirements.md), [risk-based test plan](docs/test-plan.md), and completed idempotency, webhook, and reconciliation evidence from Milestones 4–5 |
+| Status | E2 implemented, verified, and merged through PR #26; see [closing report](closing-report.md) for evidence and limits |
+| Test basis | [Payment requirements](../../../payment-requirements.md), [risk-based test plan](../../../test-plan.md), and completed idempotency, webhook, and reconciliation evidence from Milestones 4–5 |
 | Revision note | Revised after review. Renamed from an earlier "Milestone 9" draft, which incorrectly reused closed milestone numbering and the term "settlement," which already has a distinct meaning in this project |
 
 ## Executive summary
@@ -134,7 +134,7 @@ invariant, not around it — see "Confirmed state" below.
   so this risk is explicitly deferred to order-management scope rather than
   claimed as covered.
 
-## Proposed behavior for owner review
+## Proposed behavior for review
 
 ### Domain model
 
@@ -297,7 +297,7 @@ expire_due_payments(now)
 
 ### Concurrency
 
-Implementation clarification (owner-approved RACE-01 review): `received_at`
+Implementation clarification (approved RACE-01 review): `received_at`
 is sampled after acquiring SQLite writer admission. It becomes durable only
 if the receipt transaction commits. The commit and later processing are separate;
 it is not an HTTP arrival timestamp or an exact disk commit timestamp. Pending
@@ -376,10 +376,10 @@ reconstruction; existing financial/source-health reporting remains separate.
   accepted and confirmation is now expected. The completed-action name follows
   the existing webhook convention without implying that every payment creation
   emits a generic `payment.created` event.
-- Applying an on-time confirmation creates one `PAYMENT_CAPTURED` event.
+- Applying an on-time confirmation creates one `payment.captured` event.
 - Expiry, whether initiated by `expire_due_payments` or a late confirmation,
-  creates one `PAYMENT_EXPIRED` event.
-- Cancellation creates one `PAYMENT_CANCELLED` event.
+  creates one `payment.expired` event.
+- Cancellation creates one `payment.cancelled` event.
 - Replays, mismatches, unknown references, and confirmations for an already
   resolved payment do not create another lifecycle event.
 
@@ -525,13 +525,13 @@ Scenario Outline: Awaiting-payment guidance follows the selected language
 6. Completed: extend reconciliation with separate payment outcomes, event dispositions,
    currency-separated anomaly reporting, and cutoff behavior. Tests:
    `REC-C01`, `REC-C02`, `REC-C03`, `REC-C04`.
-7. Completed: English and Japanese messaging with owner-approved wording.
+7. Completed: English and Japanese messaging with approved wording.
    Tests: `LOC-C01`; closeout UI cases U1–U9.
 8. Completed: a focused agent-led exploratory session on whether the stored evidence is minimal
    and whether messaging could mislead a customer about the safety of their
    money.
 9. Local project gate complete; [closing report](closing-report.md) records
-   evidence. Remote CI is the remaining release gate before merge.
+   evidence. PR #26 passed all six CI checks and was merged.
 
 ## Decisions carried into this revision
 
@@ -557,6 +557,6 @@ Scenario Outline: Awaiting-payment guidance follows the selected language
 
 ## Note carried from Enhancement 1
 
-The unresolved Enhancement 1 decision — whether legacy `tok_declined` remains
-an alias for `unknown` — is unrelated to this enhancement and should be
-closed before or independently of this one.
+Enhancement 1 kept `tok_declined` as a backward-compatible alias for the
+`unknown` decline reason. This decision is complete and requires no further
+E2 work.

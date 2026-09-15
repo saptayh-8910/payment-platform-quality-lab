@@ -1,6 +1,6 @@
 # CANC-01: Awaiting-payment cancellation review
 
-Status: Owner approved on 2026-09-11. See [execution report](cancellation-report.md).
+Status: Design decisions and scenarios approved on 2026-09-11. See [execution report](cancellation-report.md).
 Baseline: merged PR #24, main `f9c87a3`. Date: 2026-09-11.
 
 ## Business purpose
@@ -132,8 +132,9 @@ final confirmation records through a fresh session.
 No UI, new schema, administrative override, background worker, or reconciliation
 report extension is proposed here. Existing local reference catalogs stay untouched.
 
-## Owner review
+## Review
 
-The owner approved the two policies above and scenario coverage before coding.
+The two policies and their test scenarios were reviewed and approved before
+implementation.
 In particular, cancellation after the deadline is intentionally not the same
 thing as cancellation after an EXPIRED transition.

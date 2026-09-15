@@ -7,10 +7,10 @@
 | Enhancement | UX-01: Provider-neutral checkout experience |
 | Status | Approved plan; implementation evidence is recorded separately |
 | Owner | Sapta Y Husain |
-| Owner review | Revised catalog approved on 2026-09-02 |
+| Review | Revised catalog approved on 2026-09-02 |
 | Planned delivery | One focused pull request after design approval |
 | Test basis | Existing multilingual checkout, completed detailed decline outcomes, accessibility rules, and payment reliability requirements |
-| Required predecessor | Enhancement 1 merged and closed with owner-approved English and Japanese guidance; satisfied by PR #17 and its quality report |
+| Required predecessor | Enhancement 1 merged and closed with approved English and Japanese guidance; satisfied by PR #17 and its quality report |
 
 ## Executive summary
 
@@ -57,19 +57,19 @@ earlier planning catalogs.
 
 - Enhancement 1 is complete. Its
   [quality report](../e1-detailed-decline-outcomes/quality-report.md) records the
-  merged pull request, owner-approved English and Japanese guidance, passing
+  merged pull request, approved English and Japanese guidance, passing
   browser evidence, and release recommendation. Its scenario catalog remains a
   historical plan, so planned wording inside that catalog does not mean the
   implemented copy is still open.
 - UX-01 starts from merged `main`, which contains the implemented guidance and
   its closing report. UX-01 must not alter that approved guidance unless a new
-  owner copy review is recorded first.
+  message review is recorded first.
 - The current Gherkin feature contains nine scenario declarations. Its scenario
   outline has two language examples, so Cucumber executes ten cases. Every one
   is mapped explicitly later in this catalog.
 - The current checkout page object selects the synthetic outcome with the
   literal locator `#outcome`. Moving that control into the simulator region
-  must preserve this ID unless the owner approves a coordinated contract change.
+  must preserve this ID unless the design review approves a coordinated contract change.
 - The current browser CI installs Chromium and its runtime dependencies, but it
   does not explicitly install or verify a Japanese glyph font. UX-01 must close
   this environment gap before using CI screenshots or layout measurements as
@@ -119,7 +119,7 @@ earlier planning catalogs.
   journey.
 - A client router, large component library, or unrelated frontend build-system
   expansion. The framework choice for the existing one-page checkout remains an
-  explicit owner decision in this catalog.
+  explicit design decision in this catalog.
 - Changes to payment domain rules, API contracts, persistence, webhooks,
   reconciliation, or performance profiles.
 - Implementing asynchronous confirmation behavior. UX-01 prepares a reusable
@@ -268,8 +268,8 @@ payment lifecycle state.
 
 The recommendation is therefore not that plain JavaScript is automatically
 safer. It is that a controlled refactor of the current implementation has a
-smaller change surface for this one-page enhancement. Owner approval is required
-before this choice becomes an implementation constraint.
+smaller change surface for this one-page enhancement. This choice was approved
+in the revised catalog on 2026-09-02 before implementation.
 
 ## Proposed customer-facing copy
 
@@ -292,8 +292,8 @@ covers only new or revised structural copy.
 | Amount not ready | Pay | 支払う |
 | Footer boundary | Synthetic simulator only. No real payments or customer data are processed. | テスト用シミュレーターです。実際の決済情報や個人情報は処理しません。 |
 
-Japanese copy in this draft is owner-review material and is not claimed as a
-professionally certified translation.
+Japanese messages were reviewed during development but have not received a
+professional translation review.
 
 ## Proposed decisions and assumptions
 
@@ -302,7 +302,7 @@ professionally certified translation.
 | Separate simulator settings from customer checkout | Recommended | Makes the test harness honest while allowing the checkout to follow familiar payment patterns |
 | Place simulator left and checkout right on desktop | Recommended | Both are visible without mixing their responsibilities |
 | Place compact simulator controls before checkout on mobile | Recommended | The tester configures the order before acting; the checkout remains the larger visual surface |
-| Keep semantic HTML and CSS; use lightweight JavaScript with an explicit UI state model | Needs owner approval | Avoids a framework migration, but accepts responsibility for centralized transitions, pure derived-view helpers, and direct regression tests |
+| Keep semantic HTML and CSS; use lightweight JavaScript with an explicit UI state model | Approved in the revised catalog on 2026-09-02 | Avoids a framework migration, but accepts responsibility for centralized transitions, pure derived-view helpers, and direct regression tests |
 | Keep one page instead of a multi-step journey | Recommended | The project tests payment behavior, not shipping, identity, or cart workflows |
 | Use a neutral synthetic payment method | Recommended | Demonstrates a payment-method area without collecting or imitating real payment credentials |
 | Put the amount in the primary action | Recommended | Gives the customer a final confirmation at the point of action |
@@ -508,7 +508,7 @@ guidance or recovery action needed by a mobile Japanese customer.
 #### Planned evidence
 
 - Playwright mobile scenario.
-- Owner-reviewed exploratory screenshot and notes.
+- Reviewed exploratory screenshot and notes.
 
 ## CI Japanese font prerequisite
 
@@ -531,7 +531,7 @@ prove good wrapping or readability.
 
 ## Implementation approach after approval
 
-1. Confirm the merged Enhancement 1 quality report and owner-approved decline
+1. Confirm the merged Enhancement 1 quality report and approved decline
    message module are present and unchanged.
 2. Add the Japanese font installation and verification step to browser CI.
 3. Run and record the current ten Cucumber cases before changing the page.
@@ -552,10 +552,10 @@ prove good wrapping or readability.
 
 ## Entry criteria
 
-- Repository owner approves the desktop and mobile information hierarchy.
-- Repository owner approves the new English and Japanese structural copy.
-- Repository owner decides how simulator controls appear on mobile.
-- Repository owner approves either the recommended lightweight-JavaScript state
+- Review and approve the desktop and mobile information hierarchy.
+- Review and approve the new English and Japanese structural copy.
+- Decide how simulator controls appear on mobile.
+- Review and approve either the recommended lightweight-JavaScript state
   model or a separately scoped framework migration.
 - Enhancement 1's merged quality report and approved decline message module are
   present. This dependency is currently satisfied and must remain satisfied.
@@ -586,19 +586,19 @@ prove good wrapping or readability.
   observation, and untested claims.
 - Pull-request CI passes from a clean checkout.
 
-## Review questions
+## Review questions and recorded decisions
 
-1. Do you approve separating simulator controls from the customer checkout?
-2. On desktop, do you approve simulator controls on the left and checkout on
-   the right?
-3. On mobile, do you approve an expanded-by-default simulator disclosure above
-   the checkout, which the tester can collapse after configuration?
-4. Do you approve `Pay {amount}` and `{amount}を支払う` as the primary action?
-5. Do you approve the remaining new English and Japanese copy in this catalog?
-6. Should the result replace the payment-method area after submission, or appear
-   below it while keeping the attempted method visible?
-7. Do you agree that asynchronous pending behavior remains in Enhancement 2,
-   while UX-01 only prepares the reusable result/status area?
-8. Do you approve the recommended lightweight-JavaScript approach with an
-   explicit UI state model, pure derived-view helpers, centralized rendering,
-   and focused Node tests instead of a framework migration?
+These topics were questions during design review. The revised catalog was
+approved on 2026-09-02. The [quality report](quality-report.md) records the
+implemented design and its verification; these are not new approvals.
+
+| Original review topic | Recorded decision |
+|---|---|
+| Separate simulator controls from checkout? | Keep them separate so test settings are not mistaken for customer payment methods. |
+| Desktop placement? | Put simulator controls on the left and checkout on the right. |
+| Mobile placement? | Put simulator controls above checkout, expanded by default and collapsible after configuration. |
+| Primary action wording? | Use `Pay {amount}` and `{amount}を支払う` when the amount is valid. |
+| Remaining English and Japanese messages? | Use the reviewed message table. Professional translation review remains outside the verified scope. |
+| Replace the method area or put the result below it? | Replace the payment-method action area with the result; keep the attempted order summary visible. |
+| Add delayed-payment behavior in UX-01? | No. UX-01 prepares the result area; E2 adds delayed-payment behavior separately. |
+| Keep lightweight JavaScript or migrate to a framework? | Keep HTML, CSS, and lightweight JavaScript with an explicit state model, shared rendering, formatting helpers, and focused Node tests. Avoiding a migration still requires careful state handling and regression tests. |

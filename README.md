@@ -91,14 +91,17 @@ the raw body, stores processed event IDs, applies newer versions, and ignores
 safe duplicates or stale events.
 
 Synthetic settlement batches now carry an immutable cutoff and ordered source
-rows. Read-only reconciliation compares settlement classification, payment and
-ledger totals, and the latest webhook consumer state. Reports keep JPY and USD
+rows. Reconciliation compares settlement classification, payment and
+ledger totals, and the latest webhook consumer state without changing financial
+records. The first report saves a separate confirmation section for the batch;
+later requests return that section unchanged while current financial checks run
+again. Reports keep JPY and USD
 totals separate and expose expected and observed values without including test
 tokens or signing secrets.
 
 The browser checkout now accepts synthetic JPY and USD amounts in English or
 Japanese. It provides six detailed decline controls and maps every normalized
-reason to owner-reviewed guidance in both languages. It converts the original
+reason to reviewed guidance in both languages. It converts the original
 amount string to integer minor units, blocks normal repeated submission,
 preserves one idempotency key while a result is uncertain, and restores
 uncertain or completed results after refresh. During an uncertain result,
@@ -115,12 +118,13 @@ columns; mobile uses an expanded-by-default simulator disclosure above a
 single-column checkout. A named client-side state model centralizes editing,
 processing, final, uncertain, restored, and error presentation.
 
-Eleven Gherkin acceptance scenarios run through Cucumber-JS and TypeScript
+Eighteen Gherkin acceptance scenarios with 140 steps run through Cucumber-JS and TypeScript
 Playwright. They cover approval, decline, localized validation, exact currency
 display, Japanese input, repeated submission, post-commit timeout recovery
 across refresh, detailed decline guidance in both languages, no automatic
 decline resubmission, simulator/customer separation, external-resource safety,
-and a keyboard journey at a 390 by 844 responsive viewport.
+and a keyboard journey at a 390 by 844 responsive viewport. Delayed-payment
+journeys also cover English and Japanese status refresh and page reload.
 Failed scenarios retain a screenshot and Playwright trace; Cucumber also
 produces HTML, JSON, and JUnit reports.
 
@@ -266,10 +270,13 @@ and temporary database. See the
 [Milestone 8 implementation guide](docs/quality/milestones/m8-performance-baseline/implementation-guide.md)
 for workloads, commands, evidence fields, safety controls, and limitations.
 
-After the performance workflow is available on `main`, use its **Run workflow**
+The performance workflow is available on `main`. Use its **Run workflow**
 button to select one profile or `all`. Relevant pull requests run `smoke`
 automatically. The weekly workflow runs the complete set without delaying every
 code review.
+
+Running `python -m pytest` shows results in the terminal. It does not create
+the XML reports below by default. CI adds the test and coverage report options.
 
 Generated reports are local or temporary CI evidence and are not committed:
 
@@ -287,6 +294,30 @@ GitHub Actions keeps Python, browser, and performance evidence for 14 days.
 Human-readable milestone decisions remain under `docs/quality/` so a reviewer
 can understand the risks, results, defects, and limitations without downloading
 CI artifacts.
+
+## Known limits
+
+This project is a payment simulator, not a production payment service.
+
+- It uses synthetic data and does not connect to a real payment provider.
+- Concurrent database updates are tested with SQLite. Other database systems
+  have not been verified.
+- Expiry and recovery use explicit service operations, not an automatic
+  background worker.
+- Internal support and reporting endpoints lack production access controls.
+- Mobile checks use browser screen sizes, not physical devices.
+- Japanese text has not received a professional translation review.
+- Automated accessibility checks and visual reviews do not replace a full
+  accessibility audit.
+- Existing performance tests cover synchronous payments, not the capacity of
+  the delayed-payment flow.
+
+See the [E2 closing report](docs/quality/enhancements/e2-asynchronous-payment-confirmation/closing-report.md)
+and [fresh-clone verification](docs/quality/fresh-clone-verification.md) for
+recorded results and environment limits. Test counts describe the tested build,
+not a promise that every possible problem has been covered.
+
+## API examples
 
 Create a synthetic JPY authorization:
 

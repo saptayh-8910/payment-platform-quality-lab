@@ -7,7 +7,7 @@
 | Enhancement | 1: Detailed declined-payment outcomes |
 | Status | Approved plan; no scenario in this document is passed evidence |
 | Owner | Sapta Y Husain |
-| Owner review | Scenario decisions reviewed before repository authoring on 2026-09-01 |
+| Review | Scenario decisions reviewed before repository authoring on 2026-09-01 |
 | Planned delivery | Separate catalog, implementation, and closing-evidence pull requests |
 | Test basis | [Payment requirements](../../../payment-requirements.md), [risk-based test plan](../../../test-plan.md), and completed reliability, webhook, browser, and exploratory evidence |
 | Closing evidence | Created only after implementation and execution |
@@ -143,7 +143,7 @@ Conflicting-request coverage will change each fingerprinted input separately:
 
 ### Customer presentation
 
-- Before UI implementation, every reason receives owner-reviewed English and
+- Before UI implementation, every reason receives reviewed English and
   Japanese guidance.
 - The same normalized reason selects equivalent customer action in both
   languages.
@@ -320,7 +320,7 @@ the scenario stays understandable to a business reviewer.
 1. Add the normalized domain reason, persistence invariant, API schema, token
    mapping, and backend tests.
 2. Add reason-aware webhook payload and representative consumer evidence.
-3. Present the exact English and Japanese message table for owner review before
+3. Present the exact English and Japanese message table for review before
    changing checkout copy.
 4. Add UI mappings, Node coverage, and the approved browser scenario outline.
 5. Execute a focused exploratory session for guidance, responsive behavior, and
@@ -337,7 +337,7 @@ not present an earlier planned scenario as passed without executed evidence.
 - Normalized reason names and semantic tokens remain provider-neutral.
 - New response and retrieval fields are agreed before implementation.
 - Database invariants distinguish declined and non-declined payments.
-- Exact English and Japanese copy receives owner review before UI
+- Exact English and Japanese copy receives review before UI
   implementation.
 - Existing idempotency, webhook, browser, and privacy baselines are green.
 
@@ -371,4 +371,4 @@ not present an earlier planned scenario as passed without executed evidence.
 | Use semantic synthetic tokens | Approved | Deterministic privacy-safe controls fit the independent simulator boundary |
 
 No catalog decision remains open. Exact customer wording intentionally remains
-the next owner review checkpoint before the UI implementation slice.
+the next review checkpoint before the UI implementation slice.

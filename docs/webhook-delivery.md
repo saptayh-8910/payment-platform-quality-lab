@@ -12,8 +12,10 @@ a real merchant or send data over the internet.
 
 ## Transactional outbox
 
-Each accepted payment version creates one webhook event in the same transaction
-as the payment, ledger entry, idempotency result, and response snapshot.
+Each accepted payment version creates one webhook event in the same database
+transaction as the payment change. Any required ledger entry and request result
+are saved in that transaction too. Not every payment change needs a ledger entry
+or an idempotency record.
 
 If event persistence fails, the complete financial transaction rolls back. If a
 client retries a committed payment request, the original event is reused and no
