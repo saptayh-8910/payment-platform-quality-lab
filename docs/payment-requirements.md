@@ -72,7 +72,11 @@ change.
 
 ### 3.1 Authorization
 
-- A valid request creates one payment and one authorization ledger entry.
+- An approved synchronous authorization creates one payment and one
+  authorization ledger entry.
+- A declined payment or a payment awaiting later confirmation creates a payment
+  record without a ledger entry. Authorized, captured, and refunded amounts
+  remain zero.
 - An authorization decision must be deterministic under test control.
 - A declined request creates a visible declined payment but no positive financial
   ledger effect.
@@ -173,7 +177,12 @@ change.
 
 ### 3.4 Idempotency
 
-- Every state-changing request requires an idempotency key.
+- Payment creation, capture, cancellation, and refund requests require an
+  idempotency key.
+- Delayed confirmations use a confirmation ID and submitted-detail checks to
+  recognise repeated delivery. Reusing an ID with different details is rejected.
+- Internal expiry and recovery operations can be repeated without creating the
+  same payment change twice.
 - A repeated key with an equivalent request returns the original outcome.
 - A repeated key with a different request fingerprint returns a conflict.
 - Idempotency records and their financial changes must commit atomically.

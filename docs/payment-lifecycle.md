@@ -112,8 +112,10 @@ Ledger entries are append-only through the public service API:
 | `CONFIRMATION_CAPTURE` | Delayed funds confirmed and captured atomically | Confirmed amount |
 
 The operation determines the accounting direction; all stored amounts remain
-positive integer minor units. Reconciliation will interpret these operations in
-a later milestone.
+positive integer minor units. Reconciliation uses these operations to calculate
+financial totals. `CONFIRMATION_CAPTURE` contributes to both authorized and
+captured totals in one payment change. Awaiting creation, awaiting cancellation,
+and expiry do not create ledger entries.
 
 ## Error behavior
 

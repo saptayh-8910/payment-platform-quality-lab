@@ -20,7 +20,7 @@ now distinguishes six provider-neutral decline reasons while keeping one final
 included in the declined webhook snapshot without creating a financial ledger
 effect.
 
-The checkout maps each reason to owner-approved English and Japanese guidance.
+The checkout maps each reason to approved English and Japanese guidance.
 The visible page does not show the normalized code or submitted simulator token.
 Browser automation samples insufficient funds in both languages, and a focused
 exploratory session checked the same result at desktop and mobile widths.
@@ -187,8 +187,8 @@ No exploratory defect was found.
   complete assistive-technology testing remain outside scope.
 - Interactive exploration sampled insufficient funds. Unit tests cover all
   message mappings, but the six complete browser journeys were not repeated.
-- Japanese guidance received owner review but not professional translation
-  certification.
+- Japanese guidance was reviewed during development but has not received a
+  professional translation review.
 - Shared webhook retry and out-of-order behavior was not repeated for every
   reason because Milestone 5 already covers that mechanism.
 - A normalized reason is not a raw external response and cannot prove how a

@@ -8,15 +8,31 @@ and must prevent stale concurrent requests from overwriting newer payment state.
 
 ## Idempotency transaction
 
-Every state-changing operation follows one transaction boundary:
+Payment creation, capture, cancellation, and refund requests use an idempotency
+key to recognise a repeated request and return its original result. These
+requests follow one transaction boundary:
 
 1. Calculate a canonical request fingerprint.
 2. Claim the unique idempotency key before changing payment state.
 3. Replay the stored snapshot when the same key and fingerprint already exist.
 4. Reject the key when its fingerprint identifies a different request.
-5. Apply the payment transition and append its ledger entry.
+5. Apply the payment transition, create its webhook event, and append a ledger
+   entry where required.
 6. Store an immutable response snapshot with the completed claim.
-7. Commit the payment, ledger, idempotency record, and snapshot together.
+7. Commit the payment, event, any ledger entry, idempotency record, and snapshot
+   together.
+
+Delayed-payment confirmation uses two separate database transactions:
+
+1. Save the authenticated confirmation receipt.
+2. Process the receipt and save its final result.
+
+This separation prevents accepted work from being lost if processing fails.
+A retry or recovery operation uses the original saved receipt time. Final
+processing commits the payment change, any financial entry, webhook event,
+and completed receipt result together. Some results, such as an unmatched
+reference, do not change a payment or create a financial entry. See the
+[payment lifecycle guide](payment-lifecycle.md) for confirmation and recovery.
 
 Two concurrent equivalent requests can both inspect the database before either
 has committed. The unique claim makes one request the owner; the other waits for
@@ -41,8 +57,14 @@ This protects competing operations with different idempotency keys, such as:
 - two refunds whose combined value exceeds the captured amount; and
 - a stale operation attempting to overwrite a newer refund total.
 
-The client receives `409 concurrent_payment_update` and should retrieve the
-payment before deciding whether a new operation is still valid.
+A rejected stale update returns `409 concurrent_payment_update`. The client
+should retrieve the payment before deciding whether a new operation is valid.
+
+Delayed confirmation, expiry, and cancellation also coordinate their database
+writes. A saved, matching confirmation received before the deadline protects
+the payment from expiry and cancellation while processing is pending.
+The response depends on the operation and the state it finds; not every
+competing request returns the same conflict error.
 
 ## Deterministic timeout controls
 

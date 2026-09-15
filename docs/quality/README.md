@@ -54,7 +54,7 @@ path.
 |---|---|---|---|---|
 | 1 | Detailed declined-payment outcomes | [Catalog](enhancements/e1-detailed-decline-outcomes/scenario-catalog.md) and [exploratory session](enhancements/e1-detailed-decline-outcomes/exploratory-session.md) | [Report](enhancements/e1-detailed-decline-outcomes/quality-report.md) | Complete |
 | UX-01 | Provider-neutral checkout experience | [Catalog](enhancements/ux1-checkout-experience/scenario-catalog.md) and [exploratory session](enhancements/ux1-checkout-experience/exploratory-session.md) | [Report](enhancements/ux1-checkout-experience/quality-report.md) | Complete |
-| 2 | Asynchronous payment confirmation | [Catalog](enhancements/e2-asynchronous-payment-confirmation/scenario-catalog.md) and [approved closeout review](enhancements/e2-asynchronous-payment-confirmation/closeout-review.md) | [Closing report, earlier slice evidence and screenshots](enhancements/e2-asynchronous-payment-confirmation/closing-report.md) | Local implementation and verification complete; remote CI and owner merge remain release gates |
+| 2 | Asynchronous payment confirmation | [Catalog](enhancements/e2-asynchronous-payment-confirmation/scenario-catalog.md) and [approved closeout review](enhancements/e2-asynchronous-payment-confirmation/closeout-review.md) | [Closing report, earlier slice evidence and screenshots](enhancements/e2-asynchronous-payment-confirmation/closing-report.md) | Implemented, verified, and merged through PR #26; see closing report for evidence and limits |
 
 An approved enhancement catalog records intended behavior, not passed evidence.
 Closing reports record executed local and pull-request CI evidence.

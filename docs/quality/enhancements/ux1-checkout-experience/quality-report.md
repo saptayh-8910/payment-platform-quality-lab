@@ -204,8 +204,8 @@ test defect.
   partial evidence.
 - Browser automation covers Chromium. Firefox, WebKit, and native mobile remain
   outside the declared scope.
-- Japanese structural copy received owner review but not professional
-  translation certification.
+- Japanese structural messages were reviewed during development but have not
+  received a professional translation review.
 - Automated contrast checks cover declared design-token pairs, not every pixel
   produced by font anti-aliasing or background blending.
 - The work is not a complete screen-reader or WCAG conformance audit.
