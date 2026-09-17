@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="230" viewBox="0 0 900 230" role="img" aria-labelledby="title desc">
+  <title id="title">Payment Platform Quality Lab</title>
+  <desc id="desc">Blue PQ monogram beside the project name on a pale blue background.</desc>
+  <defs><linearGradient id="surface" x2="1" y2="1"><stop stop-color="#edf2ff"/><stop offset="1" stop-color="#f8faff"/></linearGradient></defs>
+  <rect x="1" y="1" width="898" height="228" rx="16" fill="url(#surface)" stroke="#d9e2fb"/>
+  <rect x="81" y="75" width="98" height="98" rx="24" fill="#dbe4fb"/>
+  <rect x="73" y="67" width="98" height="98" rx="24" fill="#3052bc"/>
+  <g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif" font-weight="600">
+    <text x="122" y="128" text-anchor="middle" font-size="34" fill="#ffffff">PQ</text>
+    <text x="213" y="110" font-size="44" fill="#1f2328">Payment Platform</text>
+    <text x="213" y="161" font-size="44" fill="#3052bc">Quality Lab</text>
+  </g>
+</svg>
