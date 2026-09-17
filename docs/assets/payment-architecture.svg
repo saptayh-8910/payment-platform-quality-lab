@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="620" viewBox="0 0 820 620" role="img" aria-labelledby="pq-map-title pq-map-desc">
+    <title id="pq-map-title">Payment simulator architecture</title>
+    <desc id="pq-map-desc">English and Japanese checkout exchanges requests and responses with the FastAPI payment service. The service reads and writes SQLite. Stored events feed signed webhook delivery to an in-process merchant simulator. Reconciliation compares stored evidence. These are logical components, not separate deployed services.</desc>
+    <style>
+text{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif;}
+.pq-node{fill:#f6f8fa;stroke:#ced7e5;stroke-width:1.2;}
+.pq-core{fill:#edf2ff;stroke:#3052bc;stroke-width:1.4;}
+.pq-title{fill:#1f2328;font-size:20px;font-weight:600;}
+.pq-sub{fill:#536176;font-size:17px;}
+.pq-edge-label{fill:#3052bc;font-size:15px;}
+.pq-edge{fill:none;stroke:#3052bc;stroke-width:1.7;marker-end:url(#pq-arrow);}
+.pq-return{stroke-dasharray:4 4;}
+</style>
+<rect x="1" y="1" width="818" height="618" rx="10" fill="#ffffff" stroke="#ced7e5"/>
+<text x="24" y="31" fill="#3052bc" font-size="16" font-weight="600">Payment Platform Quality Lab</text>
+<text x="796" y="31" fill="#536176" font-size="12" text-anchor="end">LOGICAL OVERVIEW · LOCAL SIMULATOR</text>
+<defs><marker id="pq-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#3052bc"/></marker></defs>
+    <rect class="pq-node" x="24" y="62" width="208" height="112" rx="10"/>
+    <text class="pq-title" x="128" y="104" text-anchor="middle">Checkout</text><text class="pq-sub" x="128" y="135" text-anchor="middle">English / Japanese</text>
+    <rect class="pq-core" x="305" y="62" width="208" height="112" rx="10"/>
+    <text class="pq-title" x="409" y="104" text-anchor="middle">Payment service</text><text class="pq-sub" x="409" y="135" text-anchor="middle">Python · FastAPI</text>
+    <rect class="pq-node" x="586" y="62" width="208" height="112" rx="10"/>
+    <text class="pq-title" x="690" y="94" text-anchor="middle">SQLite</text><text class="pq-sub" x="690" y="122" text-anchor="middle">Payments · Ledger</text><text class="pq-sub" x="690" y="146" text-anchor="middle">Receipts · Events</text>
+    <path class="pq-edge" d="M232 93 H305"/><text class="pq-edge-label" x="268" y="80" text-anchor="middle">Request</text>
+    <path class="pq-edge pq-return" d="M305 145 H232"/><text class="pq-edge-label" x="268" y="166" text-anchor="middle">Response</text>
+    <path class="pq-edge" d="M513 93 H586"/><text class="pq-edge-label" x="549" y="80" text-anchor="middle">Write</text>
+    <path class="pq-edge pq-return" d="M586 145 H513"/><text class="pq-edge-label" x="549" y="166" text-anchor="middle">Read</text>
+    <path class="pq-edge" d="M690 174 V274"/><text class="pq-edge-label" x="705" y="216">Stored</text><text class="pq-edge-label" x="705" y="237">events</text>
+    <rect class="pq-node" x="586" y="274" width="208" height="108" rx="10"/>
+    <text class="pq-title" x="690" y="317" text-anchor="middle">Webhook delivery</text><text class="pq-sub" x="690" y="347" text-anchor="middle">Sign · Retry</text>
+    <rect class="pq-node" x="305" y="274" width="208" height="108" rx="10"/>
+    <text class="pq-title" x="409" y="317" text-anchor="middle">Merchant simulator</text><text class="pq-sub" x="409" y="347" text-anchor="middle">Verify · Deduplicate</text>
+    <path class="pq-edge" d="M586 328 H513"/><text class="pq-edge-label" x="549" y="300" text-anchor="middle">Signed</text><text class="pq-edge-label" x="549" y="318" text-anchor="middle">event</text>
+    <rect class="pq-node" x="24" y="274" width="208" height="108" rx="10"/>
+    <text class="pq-title" x="128" y="317" text-anchor="middle">Reconciliation</text><text class="pq-sub" x="128" y="347" text-anchor="middle">Compare · Report</text>
+    <path class="pq-edge" d="M626 174 V218 H128 V274"/><text class="pq-edge-label" x="377" y="205" text-anchor="middle">Stored financial and confirmation evidence</text>
+    <path class="pq-edge pq-return" d="M409 382 V431 H809 V119 H794"/><text class="pq-edge-label" x="599" y="420" text-anchor="middle">Save merchant records in the same database</text>
+   <path d="M24 468 H48" stroke="#3052bc" stroke-width="2"/><text x="58" y="473" fill="#536176" font-size="14">Request / data flow</text>
+<path d="M244 468 H268" stroke="#3052bc" stroke-width="2" stroke-dasharray="4 4"/><text x="278" y="473" fill="#536176" font-size="14">Return / stored result</text>
+<path d="M1 498 H819 V609 Q819 619 809 619 H11 Q1 619 1 609 Z" fill="#f6f8fa"/>
+<path d="M1 498 H819" stroke="#ced7e5"/>
+<text x="24" y="527" font-size="13" fill="#536176" letter-spacing="1">TEST COVERAGE</text>
+<g font-size="17" font-weight="600" fill="#1f2328"><text x="24" y="562">Playwright + Cucumber</text><text x="318" y="562">pytest</text><text x="609" y="562">k6</text></g>
+<g font-size="15" fill="#536176"><text x="24" y="588">Browser journeys</text><text x="318" y="588">Domain · API · Database</text><text x="609" y="588">Performance baseline</text></g>
+</svg>

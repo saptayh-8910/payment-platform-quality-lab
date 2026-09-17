@@ -1,9 +1,21 @@
+<p align="center">
+  <img src="docs/assets/readme-banner.svg" alt="Payment Platform Quality Lab" width="900">
+</p>
+
 # Payment Platform Quality Lab
 
 Payment Platform Quality Lab is a privacy-safe payment simulator and QA
 portfolio project. It demonstrates risk-based testing of payment lifecycles,
 failure recovery, financial correctness, and platform reliability without
 processing real payments or cardholder data.
+
+[![Python: pytest](docs/assets/badge-pytest.svg)](tests/) [![Browser: Playwright](docs/assets/badge-playwright.svg)](features/) [![BDD: Cucumber](docs/assets/badge-cucumber.svg)](features/checkout/) [![License: MIT](docs/assets/badge-license.svg)](LICENSE)
+
+<p align="center">
+  <a href="docs/quality/enhancements/e2-asynchronous-payment-confirmation/evidence/en-desktop.png">
+    <img src="docs/quality/enhancements/e2-asynchronous-payment-confirmation/evidence/en-desktop.png" alt="English desktop simulator checkout showing an expired synthetic payment, order summary, and status controls" width="520">
+  </a>
+</p>
 
 ## Project goals
 
@@ -18,14 +30,6 @@ processing real payments or cardholder data.
   performance testing.
 - Demonstrate release-quality evidence through CI reports and explicit gates.
 
-## Non-goals
-
-- Processing real payments or integrating with a production payment processor.
-- Accepting, storing, or transmitting cardholder data.
-- Claiming production-grade PCI DSS, security, or regulatory compliance.
-- Building a feature-complete ecommerce application.
-- Reproducing a specific payment provider's proprietary implementation.
-
 ## System design
 
 The system under test is a small Python payment service with a responsive,
@@ -33,6 +37,11 @@ provider-neutral English/Japanese checkout. The service uses integer minor units
 payment state machine, an immutable ledger, idempotency claims with immutable
 response snapshots, optimistic concurrency control, a transactional webhook
 outbox, and multi-source financial reconciliation.
+
+[![Payment simulator architecture: checkout requests and responses, payment service, SQLite, webhook delivery, merchant simulator, reconciliation, and test coverage](docs/assets/payment-architecture.svg)](docs/assets/payment-architecture.svg)
+
+Logical components, not separate deployments. Merchant delivery is simulated
+in-process; no real payment provider is connected.
 
 Test tooling:
 
@@ -62,152 +71,25 @@ Test tooling:
 
 ## Current status
 
-The service implements deterministic authorization, asynchronous payment
-creation and confirmation, and six detailed, provider-neutral decline outcomes
-plus full capture, pre-capture cancellation, and partial or full refunds. Every
-accepted operation with a financial effect records one immutable ledger entry.
-Each accepted transition after creation increments the payment version once and
-commits its related evidence in the same transaction. Invalid transitions and
-over-refunds leave payment and ledger state unchanged.
+The service supports authorization, capture, cancellation, partial and full refunds, and delayed-payment confirmation. Six decline reasons share one `DECLINED` state. Declined payments have zero financial balances and no ledger entry. Invalid actions and excessive refunds leave financial records unchanged.
 
-The current automated baseline contains 397 pytest tests with branch-aware
-coverage above the required 85% gate, 49 Node tests, and 18 Cucumber scenarios
-with 140 steps.
-GitHub Actions runs the Python suite on Python 3.12 and 3.14 and runs the
-complete browser gate in Chromium.
+The recorded automated baseline includes 397 Python tests, 49 JavaScript tests, and 18 Cucumber browser scenarios with 140 steps. Python coverage exceeds the required 85% gate. GitHub Actions runs the Python tests on versions 3.12 and 3.14, with browser tests in Chromium.
 
-Concurrent equivalent requests now claim one idempotency key before applying a
-financial mutation. Successful outcomes store an immutable response snapshot,
-so a later retry returns the original result even after the payment changes.
-Optimistic version checks reject stale competing transitions, while deterministic
-pre-commit and post-commit timeouts demonstrate rollback and safe retry behavior.
-Failure controls are disabled unless an application instance explicitly enables
-test/demo mode.
+Idempotency keys protect against duplicate payment actions. Repeating an identical request returns its original result, while reusing the key with different details returns a conflict. Tests cover competing requests and timeouts before and after a payment is saved.
 
-Every accepted payment version now creates one full-snapshot webhook event in
-the financial transaction. The producer signs deliveries with HMAC-SHA256 and
-records deterministic retry attempts. A simulated merchant consumer verifies
-the raw body, stores processed event IDs, applies newer versions, and ignores
-safe duplicates or stale events.
+Each accepted payment version creates one signed webhook event alongside the payment change. Delivery supports retries, and the merchant simulator checks signatures, ignores safe duplicates, and prevents older events from replacing newer records.
 
-Synthetic settlement batches now carry an immutable cutoff and ordered source
-rows. Reconciliation compares settlement classification, payment and
-ledger totals, and the latest webhook consumer state without changing financial
-records. The first report saves a separate confirmation section for the batch;
-later requests return that section unchanged while current financial checks run
-again. Reports keep JPY and USD
-totals separate and expose expected and observed values without including test
-tokens or signing secrets.
+Reconciliation compares settlement data, payment balances, ledger entries, and merchant records without changing financial records. JPY and USD totals stay separate. The confirmation section is saved once per batch; current financial checks run again. A new batch is required for fresh confirmation evidence.
 
-The browser checkout now accepts synthetic JPY and USD amounts in English or
-Japanese. It provides six detailed decline controls and maps every normalized
-reason to reviewed guidance in both languages. It converts the original
-amount string to integer minor units, blocks normal repeated submission,
-preserves one idempotency key while a result is uncertain, and restores
-uncertain or completed results after refresh. During an uncertain result,
-tab-scoped session storage holds the active key and a minimal synthetic retry
-packet: reference, integer amount, currency, and a safe outcome label. It does
-not store the raw API token. A final result clears that packet and keeps only
-the last payment ID needed for refresh.
+The responsive English/Japanese checkout separates simulator controls from the customer payment area. It shows an order summary, exact currency amounts, and clear results. Safe retry and page-reload recovery preserve uncertain outcomes without storing raw payment tokens in browser storage.
 
-The checkout separates simulator settings from the customer payment surface.
-The simulator owns reference, amount, currency, and synthetic outcome controls.
-The customer view shows a live order summary, a neutral synthetic payment
-method, one amount-labelled action, and a focused result. Desktop uses two
-columns; mobile uses an expanded-by-default simulator disclosure above a
-single-column checkout. A named client-side state model centralizes editing,
-processing, final, uncertain, restored, and error presentation.
+Browser tests cover approvals, declines, validation, Japanese input, repeated submission, timeout recovery, keyboard use, and mobile layouts. Failed scenarios retain screenshots and traces. Exploratory testing also found and helped resolve a defect where page refresh hid a payment that had already been saved.
 
-Eighteen Gherkin acceptance scenarios with 140 steps run through Cucumber-JS and TypeScript
-Playwright. They cover approval, decline, localized validation, exact currency
-display, Japanese input, repeated submission, post-commit timeout recovery
-across refresh, detailed decline guidance in both languages, no automatic
-decline resubmission, simulator/customer separation, external-resource safety,
-and a keyboard journey at a 390 by 844 responsive viewport. Delayed-payment
-journeys also cover English and Japanese status refresh and page reload.
-Failed scenarios retain a screenshot and Playwright trace; Cucumber also
-produces HTML, JSON, and JUnit reports.
+The k6 performance suite covers authorization, retrieval, repeated requests, and mixed traffic. A separate Python check verifies financial records after each run. Milestone 8 recorded two complete passing baselines and one blocked response-time failure, with evidence preserved in its quality report. These workloads cover synchronous payments.
 
-Milestone 7 is closed with an executed exploratory session, timestamped notes,
-finding classification, privacy review, and cross-layer financial evidence. The
-session found one High recovery defect: refresh hid an uncertain payment that
-had already committed. The defect was reproduced in English and Japanese, fixed,
-and added to the critical Cucumber regression journey. No duplicate financial
-effect occurred.
+Delayed payments begin in `AWAITING_PAYMENT` with a unique reference and a 72-hour deadline, without creating a ledger entry. A valid, matching confirmation received before the deadline authorizes and captures the amount together. Late, mismatched, unknown, duplicate, and already-resolved confirmations are recorded without an unintended financial effect.
 
-Milestone 8 now has a local k6 harness for authorization, retrieval, concurrent
-idempotent retry, and a mixed read/write workload. A loopback-only runner starts
-FastAPI with a fresh temporary SQLite database. k6 checks exact traffic, HTTP
-behavior, dropped work, and response time. An independent Python verifier then
-checks payment, ledger, idempotency, webhook, and currency evidence. Both
-sanitized reports must agree before the run passes.
-
-The performance workflow runs the short smoke checkpoint for relevant pull
-requests. A reviewer can manually select one profile or the full set, and a
-weekly run provides an early warning for changes in speed or financial
-reliability. Each profile uploads sanitized evidence before GitHub enforces the
-final pass or fail decision.
-
-Milestone 8 is closed with two complete passing baselines on merged code. Every
-profile had zero HTTP failures, zero dropped iterations, and exact post-load
-financial evidence. One intervening authorization execution exceeded its p99
-guardrail while keeping correct financial records. The workflow blocked that
-run, retained the evidence, and later passed a focused confirmation and a second
-complete baseline without changing the thresholds. The
-[Milestone 8 quality report](docs/quality/milestones/m8-performance-baseline/quality-report.md)
-records the results, variation, limitations, and final recommendation.
-
-Enhancement 1 adds six detailed declined-payment outcomes while preserving one
-final `DECLINED` state. The normalized reason remains consistent across payment
-retrieval, idempotent replay, webhook delivery, and the merchant projection.
-Every decline keeps all financial balances at zero and creates no ledger entry.
-The [Enhancement 1 quality report](docs/quality/enhancements/e1-detailed-decline-outcomes/quality-report.md)
-records the automated, exploratory, privacy, defect, and limitation evidence.
-
-UX-01 redesigns the same checkout without changing payment contracts. Its
-approved catalog, local exploratory session, and closing quality report record
-the visual hierarchy, state-model decision, Japanese font control, accessibility
-targets, regression mapping, and current limitations.
-
-Enhancement 2 now has its migration foundation, creation slice, confirmation
-processing core, and scheduled expiry operation. A request using the
-asynchronous simulator option creates one
-`AWAITING_PAYMENT` record with a unique reference and a deadline 72 hours after
-the injected creation time. It creates no ledger entry and emits one
-`payment.confirmation_requested` event. Identical retries return the original
-reference and deadline.
-
-A correctly signed confirmation receives a server-controlled acceptance time
-after database writer admission. Its receipt commits before final processing.
-A matching on-time confirmation atomically sets
-both financial balances, creates one `CONFIRMATION_CAPTURE` ledger entry, and
-emits one captured event. Late, mismatched, unknown, duplicate, and
-already-resolved confirmations cannot create another financial effect. The
-external response remains a generic acknowledgement while an internal endpoint
-provides the retained diagnostic evidence.
-
-The internal `expire_due_payments(now)` operation processes a bounded,
-deterministic batch of overdue awaiting payments. Each payment expires once with
-zero financial effect and one `payment.expired` event. Repeated runs are safe,
-and an event failure rolls back the complete batch. A matching on-time pending
-receipt protects the payment from both scheduled and late-confirmation expiry.
-Receipt acceptance, completion, and expiry use SQLite writer coordination.
-Pending receipts survive processing failures and can be resumed by identical
-caller retry or bounded internal recovery. Forced connection races verify these
-paths. Awaiting cancellation, saved confirmation reporting, and EN/JA status
-views complete the E2 scope. See the [E2 closing report](docs/quality/enhancements/e2-asynchronous-payment-confirmation/closing-report.md)
-for executed evidence and limits.
-
-Select **Await later confirmation** in the simulator controls to show the
-reference and Japan-time deadline. **Check payment status** reads the latest
-backend result without creating another payment. The browser does not confirm
-or expire a payment merely because time passes.
-
-`POST /reconciliation-reports` now includes a saved `confirmation_section`.
-This section is frozen on first generation for its batch, with cutoff and
-generation timestamps. Existing financial comparisons remain live and separate.
-Generate a new settlement batch to obtain fresh confirmation evidence, including
-later recovery. Observed anomaly amounts are not money received.
+Saved confirmation receipts survive processing failures and support safe recovery. Tests force confirmation, expiry, and cancellation to compete and verify one valid outcome. The checkout can refresh the backend status without creating another payment; browser time alone cannot confirm or expire it. The E2 closing report records the results and remaining limits.
 
 ## Quick start
 
@@ -297,20 +179,11 @@ CI artifacts.
 
 ## Known limits
 
-This project is a payment simulator, not a production payment service.
-
-- It uses synthetic data and does not connect to a real payment provider.
-- Concurrent database updates are tested with SQLite. Other database systems
-  have not been verified.
-- Expiry and recovery use explicit service operations, not an automatic
-  background worker.
-- Internal support and reporting endpoints lack production access controls.
-- Mobile checks use browser screen sizes, not physical devices.
-- Japanese text has not received a professional translation review.
-- Automated accessibility checks and visual reviews do not replace a full
-  accessibility audit.
-- Existing performance tests cover synchronous payments, not the capacity of
-  the delayed-payment flow.
+- **Simulator only:** Uses synthetic data, processes no real payments, and does not verify a real payment-provider integration.
+- **Local operation:** Database concurrency is tested with SQLite. Expiry and recovery require explicit operations, not an automatic background worker.
+- **Production security:** Internal endpoints lack production access controls. No production readiness or payment-security certification is claimed.
+- **Interface coverage:** Browser automation covers Chromium and simulated mobile sizes. Accessibility checks are partial.
+- **Performance scope:** Performance tests cover synchronous payments, not delayed-payment capacity.
 
 See the [E2 closing report](docs/quality/enhancements/e2-asynchronous-payment-confirmation/closing-report.md)
 and [fresh-clone verification](docs/quality/fresh-clone-verification.md) for
